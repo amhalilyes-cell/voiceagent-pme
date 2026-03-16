@@ -2,7 +2,10 @@ import fs from "fs";
 import path from "path";
 import type { Artisan } from "@/types/artisan";
 
-const DATA_FILE = path.join(process.cwd(), "data", "artisans.json");
+const DATA_FILE =
+  process.env.NODE_ENV === "production"
+    ? "/tmp/artisans.json"
+    : path.join(process.cwd(), "data", "artisans.json");
 
 export function readArtisans(): Artisan[] {
   try {
