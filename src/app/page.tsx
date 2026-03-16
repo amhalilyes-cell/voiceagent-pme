@@ -271,7 +271,7 @@ export default function HomePage() {
                   ))}
                 </ul>
                 <a
-                  href="#contact"
+                  href="/inscription"
                   className={`block text-center font-semibold py-3 rounded-xl transition-colors ${
                     plan.highlighted
                       ? "bg-white text-blue-600 hover:bg-blue-50"
