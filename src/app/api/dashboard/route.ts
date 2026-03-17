@@ -23,7 +23,7 @@ async function fetchRecentCalls() {
 export async function GET() {
   const [calls, artisans] = await Promise.all([
     fetchRecentCalls(),
-    Promise.resolve(readArtisans()),
+    readArtisans(),
   ]);
 
   return NextResponse.json({

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Vérifie si l'email est déjà utilisé
-    const existing = findArtisanByEmail(email);
+    const existing = await findArtisanByEmail(email);
     if (existing && existing.status !== "cancelled") {
       return NextResponse.json(
         { error: "Un compte existe déjà avec cet email" },
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       stripeCustomerId: customer.id,
       createdAt: new Date().toISOString(),
     };
-    saveArtisan(artisan);
+    await saveArtisan(artisan);
 
     // Crée la session Stripe Checkout
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

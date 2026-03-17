@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
-import { updateArtisan } from "@/lib/storage";
+import { updateArtisan, findArtisanByStripeCustomerId } from "@/lib/storage";
 import type Stripe from "stripe";
 
 /**
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
           : session.subscription?.id;
 
       if (artisanId) {
-        updateArtisan(artisanId, {
+        await updateArtisan(artisanId, {
           status: "active",
           stripeSubscriptionId: subscriptionId,
         });
@@ -50,13 +50,9 @@ export async function POST(req: NextRequest) {
       const customerId =
         typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
-      // Retrouve l'artisan par customerId
-      const { readArtisans, writeArtisans } = await import("@/lib/storage");
-      const artisans = readArtisans();
-      const idx = artisans.findIndex((a) => a.stripeCustomerId === customerId);
-      if (idx >= 0) {
-        artisans[idx].status = "cancelled";
-        writeArtisans(artisans);
+      const artisan = await findArtisanByStripeCustomerId(customerId);
+      if (artisan) {
+        await updateArtisan(artisan.id, { status: "cancelled" });
         console.log(`[Stripe] Abonnement annulé pour client ${customerId}`);
       }
       break;
