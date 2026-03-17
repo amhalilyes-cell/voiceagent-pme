@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/rapport-hebdo",
+      "schedule": "0 8 * * 1"
+    }
+  ]
+}
