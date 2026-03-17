@@ -1,12 +1,9 @@
-import twilio from "twilio";
+import { BrevoClient, BrevoEnvironment } from "@getbrevo/brevo";
 
-function getTwilioClient() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  if (!accountSid || !authToken) {
-    throw new Error("TWILIO_ACCOUNT_SID et TWILIO_AUTH_TOKEN sont requises");
-  }
-  return twilio(accountSid, authToken);
+function getBrevoClient(): BrevoClient {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) throw new Error("BREVO_API_KEY est manquante dans les variables d'environnement");
+  return new BrevoClient({ apiKey, environment: BrevoEnvironment.Default });
 }
 
 export interface ConfirmationSMSData {
@@ -18,31 +15,28 @@ export interface ConfirmationSMSData {
 }
 
 /**
- * Normalise un numéro français vers le format E.164 (+33…).
- * Passe les numéros déjà au format international sans modification.
+ * Normalise un numéro vers le format Brevo (sans +, avec indicatif pays).
+ * Ex: "06 12 34 56 78" → "33612345678"
  */
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/[\s.\-()]/g, "");
-  if (digits.startsWith("+")) return digits;
-  if (digits.startsWith("0")) return "+33" + digits.slice(1);
-  return "+" + digits;
+  if (digits.startsWith("+")) return digits.slice(1);
+  if (digits.startsWith("0")) return "33" + digits.slice(1);
+  return digits;
 }
 
 export async function sendConfirmationSMS(data: ConfirmationSMSData): Promise<void> {
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!from) throw new Error("TWILIO_PHONE_NUMBER est manquante dans les variables d'environnement");
-
   const heureStr = data.rdvHeure ? ` à ${data.rdvHeure}` : "";
-  const body =
+  const content =
     `Bonjour ${data.clientName},\n` +
-    `Votre rendez-vous avec ${data.companyName} est confirmé le ${data.rdvDate}${heureStr}.\n` +
-    `Pour toute question, contactez-nous directement.\n` +
-    `— ${data.companyName}`;
+    `Votre RDV avec ${data.companyName} est confirmé le ${data.rdvDate}${heureStr}.\n` +
+    `Pour toute question, contactez-nous directement.`;
 
-  const client = getTwilioClient();
-  await client.messages.create({
-    body,
-    from,
-    to: normalizePhone(data.clientPhone),
+  const client = getBrevoClient();
+  await client.transactionalSms.sendAsyncTransactionalSms({
+    recipient: normalizePhone(data.clientPhone),
+    sender: data.companyName.slice(0, 11),
+    content,
+    type: "transactional",
   });
 }
