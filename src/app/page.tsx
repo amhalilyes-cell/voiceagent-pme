@@ -218,7 +218,7 @@ export default function HomePage() {
                   "3 voix personnalisées",
                   "Support prioritaire",
                 ],
-                cta: "Essayer 14 jours gratuit",
+                cta: "Essayer 7 jours gratuit",
                 highlighted: true,
               },
             ].map((plan) => (
@@ -297,7 +297,7 @@ export default function HomePage() {
           </p>
           <ContactForm />
           <p className="text-xs text-gray-400 mt-3">
-            Pas de carte bancaire requise. Essai 14 jours gratuit.
+            Pas de carte bancaire requise. Essai 7 jours gratuit.
           </p>
         </div>
       </section>
