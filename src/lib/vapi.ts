@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { VapiWebhookEvent, VapiFunctionCallResponse } from "@/types/vapi";
+import { sendCallReport } from "@/lib/email";
 
 /**
  * Vérifie la signature HMAC-SHA256 d'un webhook Vapi.
@@ -59,7 +60,30 @@ export async function handleVapiEvent(
       const report = event.message;
       console.log(`[Vapi] Rapport de fin d'appel — ID: ${call.id}`);
       console.log(`[Vapi] Résumé: ${report.summary}`);
-      // TODO: Envoyer le résumé par email/SMS au client artisan
+
+      // Calcul de la durée en secondes
+      let durationSeconds: number | undefined;
+      if (call.startedAt && call.endedAt) {
+        durationSeconds = Math.round(
+          (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000
+        );
+      }
+
+      try {
+        await sendCallReport({
+          callId: call.id,
+          clientName: call.customer?.name,
+          clientPhone: call.customer?.phoneNumber,
+          summary: report.summary,
+          transcript: report.transcript,
+          durationSeconds,
+          recordingUrl: report.recordingUrl,
+        });
+        console.log(`[Vapi] Email de rapport envoyé pour l'appel ${call.id}`);
+      } catch (err) {
+        console.error(`[Vapi] Échec envoi email pour l'appel ${call.id}:`, err);
+      }
+
       return null;
     }
 
