@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import type { Artisan, ArtisanStatus, MetierType } from "@/types/artisan";
 
 // Représentation en base (snake_case)
@@ -49,7 +49,7 @@ function toRow(artisan: Artisan): ArtisanRow {
 }
 
 export async function readArtisans(): Promise<Artisan[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("artisans")
     .select("*")
     .order("created_at", { ascending: false });
@@ -59,7 +59,7 @@ export async function readArtisans(): Promise<Artisan[]> {
 }
 
 export async function saveArtisan(artisan: Artisan): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("artisans")
     .upsert(toRow(artisan), { onConflict: "id" });
 
@@ -67,7 +67,7 @@ export async function saveArtisan(artisan: Artisan): Promise<void> {
 }
 
 export async function findArtisanByEmail(email: string): Promise<Artisan | undefined> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("artisans")
     .select("*")
     .eq("email", email)
@@ -78,7 +78,7 @@ export async function findArtisanByEmail(email: string): Promise<Artisan | undef
 }
 
 export async function findArtisanById(id: string): Promise<Artisan | undefined> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("artisans")
     .select("*")
     .eq("id", id)
@@ -89,7 +89,7 @@ export async function findArtisanById(id: string): Promise<Artisan | undefined> 
 }
 
 export async function findArtisanByStripeCustomerId(customerId: string): Promise<Artisan | undefined> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("artisans")
     .select("*")
     .eq("stripe_customer_id", customerId)
@@ -114,7 +114,7 @@ export async function updateArtisan(
   if (patch.stripeCustomerId !== undefined) rowPatch.stripe_customer_id = patch.stripeCustomerId;
   if (patch.stripeSubscriptionId !== undefined) rowPatch.stripe_subscription_id = patch.stripeSubscriptionId;
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("artisans")
     .update(rowPatch)
     .eq("id", id)

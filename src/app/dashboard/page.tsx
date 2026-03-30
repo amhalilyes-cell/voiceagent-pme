@@ -2,6 +2,8 @@ import { readArtisans } from "@/lib/storage";
 import type { Artisan } from "@/types/artisan";
 import type { VapiCall } from "@/types/vapi";
 
+export const dynamic = "force-dynamic";
+
 const VAPI_BASE_URL = "https://api.vapi.ai";
 
 async function getRecentCalls(): Promise<VapiCall[]> {
