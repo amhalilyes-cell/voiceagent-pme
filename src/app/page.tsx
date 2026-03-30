@@ -183,105 +183,57 @@ export default function HomePage() {
 
       {/* Tarifs */}
       <section id="tarifs" className="py-20 bg-gray-50 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-lg mx-auto">
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">
             Tarifs simples et transparents
           </h2>
           <p className="text-center text-gray-500 mb-14">
             Sans engagement. Annulable à tout moment.
           </p>
-          <div className="grid md:grid-cols-2 gap-8">
-            {[
-              {
-                name: "Essentiel",
-                price: "49",
-                desc: "Idéal pour démarrer",
-                features: [
-                  "Jusqu'à 100 appels/mois",
-                  "Prise de rendez-vous",
-                  "Résumé par email",
-                  "1 voix personnalisée",
-                  "Support par email",
-                ],
-                cta: "Commencer",
-                highlighted: false,
-              },
-              {
-                name: "Pro",
-                price: "99",
-                desc: "Pour les artisans en croissance",
-                features: [
-                  "Appels illimités",
-                  "Transfert d'appels en direct",
-                  "Résumé SMS + email",
-                  "Intégration agenda Google",
-                  "3 voix personnalisées",
-                  "Support prioritaire",
-                ],
-                cta: "Essayer 7 jours gratuit",
-                highlighted: true,
-              },
-            ].map((plan) => (
-              <div
-                key={plan.name}
-                className={`rounded-2xl p-8 ${
-                  plan.highlighted
-                    ? "bg-blue-600 text-white shadow-xl"
-                    : "bg-white border border-gray-200 shadow-sm"
-                }`}
-              >
-                <div
-                  className={`text-sm font-medium mb-1 ${
-                    plan.highlighted ? "text-blue-100" : "text-gray-500"
-                  }`}
-                >
-                  {plan.desc}
-                </div>
-                <div className="text-2xl font-bold mb-1">{plan.name}</div>
-                <div className="flex items-end gap-1 mb-6">
-                  <span className="text-4xl font-bold">{plan.price}€</span>
-                  <span
-                    className={`text-sm mb-1 ${
-                      plan.highlighted ? "text-blue-100" : "text-gray-500"
-                    }`}
+          <div className="bg-blue-600 text-white rounded-2xl p-8 shadow-xl">
+            <div className="text-sm font-medium text-blue-100 mb-1">
+              Tout inclus, sans surprise
+            </div>
+            <div className="text-2xl font-bold mb-1">Offre unique</div>
+            <div className="flex items-end gap-1 mb-6">
+              <span className="text-4xl font-bold">500€</span>
+              <span className="text-sm text-blue-100 mb-1">/mois</span>
+            </div>
+            <ul className="space-y-3 mb-8">
+              {[
+                "Appels illimités 24h/24",
+                "Prise de RDV automatique Google Calendar",
+                "SMS de confirmation au client",
+                "Email résumé après chaque appel",
+                "Rapport hebdomadaire automatique",
+                "Numéro français dédié (+33)",
+                "Support prioritaire",
+                "7 jours d'essai gratuit",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm">
+                  <svg
+                    className="w-4 h-4 flex-shrink-0 text-blue-200"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
                   >
-                    /mois
-                  </span>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm">
-                      <svg
-                        className={`w-4 h-4 flex-shrink-0 ${
-                          plan.highlighted ? "text-blue-200" : "text-blue-600"
-                        }`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href="/inscription"
-                  className={`block text-center font-semibold py-3 rounded-xl transition-colors ${
-                    plan.highlighted
-                      ? "bg-white text-blue-600 hover:bg-blue-50"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  {plan.cta}
-                </a>
-              </div>
-            ))}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <a
+              href="/inscription"
+              className="block text-center font-semibold py-3 rounded-xl bg-white text-blue-600 hover:bg-blue-50 transition-colors"
+            >
+              Essayer 7 jours gratuit
+            </a>
           </div>
         </div>
       </section>
@@ -297,7 +249,7 @@ export default function HomePage() {
           </p>
           <ContactForm />
           <p className="text-xs text-gray-400 mt-3">
-            Pas de carte bancaire requise. Essai 7 jours gratuit.
+            Pas de carte bancaire requise. Essai 7 jours gratuit. 500€/mois ensuite.
           </p>
         </div>
       </section>
