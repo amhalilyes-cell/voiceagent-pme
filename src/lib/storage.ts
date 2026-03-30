@@ -48,55 +48,89 @@ function toRow(artisan: Artisan): ArtisanRow {
   };
 }
 
-export async function readArtisans(): Promise<Artisan[]> {
-  const { data, error } = await getSupabase()
-    .from("artisans")
-    .select("*")
-    .order("created_at", { ascending: false });
+/**
+ * Formate une erreur Supabase en incluant la cause réseau si présente.
+ * Supabase SDK lève une TypeError pour les erreurs réseau (fetch failed),
+ * qui ne passent pas par le champ `error` du résultat.
+ */
+function formatError(context: string, err: unknown): Error {
+  if (err instanceof Error) {
+    const cause = (err as Error & { cause?: unknown }).cause;
+    const causeMsg = cause instanceof Error ? ` | cause: ${cause.message}` : "";
+    return new Error(`Supabase ${context}: ${err.message}${causeMsg}`);
+  }
+  return new Error(`Supabase ${context}: ${String(err)}`);
+}
 
-  if (error) throw new Error(`Supabase readArtisans: ${error.message}`);
-  return (data as ArtisanRow[]).map(toArtisan);
+export async function readArtisans(): Promise<Artisan[]> {
+  try {
+    const { data, error } = await getSupabase()
+      .from("artisans")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return (data as ArtisanRow[]).map(toArtisan);
+  } catch (err) {
+    throw formatError("readArtisans", err);
+  }
 }
 
 export async function saveArtisan(artisan: Artisan): Promise<void> {
-  const { error } = await getSupabase()
-    .from("artisans")
-    .upsert(toRow(artisan), { onConflict: "id" });
+  try {
+    const { error } = await getSupabase()
+      .from("artisans")
+      .upsert(toRow(artisan), { onConflict: "id" });
 
-  if (error) throw new Error(`Supabase saveArtisan: ${error.message}`);
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    throw formatError("saveArtisan", err);
+  }
 }
 
 export async function findArtisanByEmail(email: string): Promise<Artisan | undefined> {
-  const { data, error } = await getSupabase()
-    .from("artisans")
-    .select("*")
-    .eq("email", email)
-    .maybeSingle();
+  try {
+    const { data, error } = await getSupabase()
+      .from("artisans")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle();
 
-  if (error) throw new Error(`Supabase findArtisanByEmail: ${error.message}`);
-  return data ? toArtisan(data as ArtisanRow) : undefined;
+    if (error) throw new Error(error.message);
+    return data ? toArtisan(data as ArtisanRow) : undefined;
+  } catch (err) {
+    throw formatError("findArtisanByEmail", err);
+  }
 }
 
 export async function findArtisanById(id: string): Promise<Artisan | undefined> {
-  const { data, error } = await getSupabase()
-    .from("artisans")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  try {
+    const { data, error } = await getSupabase()
+      .from("artisans")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
-  if (error) throw new Error(`Supabase findArtisanById: ${error.message}`);
-  return data ? toArtisan(data as ArtisanRow) : undefined;
+    if (error) throw new Error(error.message);
+    return data ? toArtisan(data as ArtisanRow) : undefined;
+  } catch (err) {
+    throw formatError("findArtisanById", err);
+  }
 }
 
 export async function findArtisanByStripeCustomerId(customerId: string): Promise<Artisan | undefined> {
-  const { data, error } = await getSupabase()
-    .from("artisans")
-    .select("*")
-    .eq("stripe_customer_id", customerId)
-    .maybeSingle();
+  try {
+    const { data, error } = await getSupabase()
+      .from("artisans")
+      .select("*")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
 
-  if (error) throw new Error(`Supabase findArtisanByStripeCustomerId: ${error.message}`);
-  return data ? toArtisan(data as ArtisanRow) : undefined;
+    if (error) throw new Error(error.message);
+    return data ? toArtisan(data as ArtisanRow) : undefined;
+  } catch (err) {
+    throw formatError("findArtisanByStripeCustomerId", err);
+  }
 }
 
 export async function updateArtisan(
@@ -114,13 +148,17 @@ export async function updateArtisan(
   if (patch.stripeCustomerId !== undefined) rowPatch.stripe_customer_id = patch.stripeCustomerId;
   if (patch.stripeSubscriptionId !== undefined) rowPatch.stripe_subscription_id = patch.stripeSubscriptionId;
 
-  const { data, error } = await getSupabase()
-    .from("artisans")
-    .update(rowPatch)
-    .eq("id", id)
-    .select()
-    .maybeSingle();
+  try {
+    const { data, error } = await getSupabase()
+      .from("artisans")
+      .update(rowPatch)
+      .eq("id", id)
+      .select()
+      .maybeSingle();
 
-  if (error) throw new Error(`Supabase updateArtisan: ${error.message}`);
-  return data ? toArtisan(data as ArtisanRow) : null;
+    if (error) throw new Error(error.message);
+    return data ? toArtisan(data as ArtisanRow) : null;
+  } catch (err) {
+    throw formatError("updateArtisan", err);
+  }
 }
