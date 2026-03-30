@@ -85,7 +85,7 @@ function InscriptionForm() {
             Créez votre compte artisan
           </h1>
           <p className="text-gray-500 mt-2 text-sm">
-            7 jours gratuits, puis 49 €/mois. Annulable à tout moment.
+            7 jours gratuits, puis 500 €/mois. Annulable à tout moment.
           </p>
         </div>
 

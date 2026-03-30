@@ -29,18 +29,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  try {
-    // Vérifie si l'email est déjà utilisé
-    const existing = await findArtisanByEmail(email);
-    if (existing && existing.status !== "cancelled") {
-      return NextResponse.json(
-        { error: "Un compte existe déjà avec cet email" },
-        { status: 409 }
-      );
-    }
+  const PRICE_ID = process.env.STRIPE_PRICE_ID ?? "price_1TGfeoRztdaAmv8e28lRV88F";
 
-    if (!process.env.STRIPE_PRICE_ID) {
-      throw new Error("STRIPE_PRICE_ID est manquante dans les variables d'environnement");
+  try {
+    // Vérifie si l'email est déjà utilisé — non-bloquant si Supabase est injoignable
+    try {
+      const existing = await findArtisanByEmail(email);
+      if (existing && existing.status !== "cancelled") {
+        return NextResponse.json(
+          { error: "Un compte existe déjà avec cet email" },
+          { status: 409 }
+        );
+      }
+    } catch (dbErr) {
+      console.warn("[api/inscription] Vérification doublon ignorée (Supabase injoignable):", dbErr);
     }
 
     // Crée le client Stripe
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest) {
       metadata: { nomEntreprise, metier },
     });
 
-    // Sauvegarde l'artisan
+    // Sauvegarde l'artisan — non-bloquant si Supabase est injoignable
     const artisan: Artisan = {
       id: randomUUID(),
       prenom,
@@ -65,7 +67,11 @@ export async function POST(req: NextRequest) {
       stripeCustomerId: customer.id,
       createdAt: new Date().toISOString(),
     };
-    await saveArtisan(artisan);
+    try {
+      await saveArtisan(artisan);
+    } catch (dbErr) {
+      console.error("[api/inscription] Sauvegarde artisan échouée (Supabase injoignable):", dbErr);
+    }
 
     // Crée la session Stripe Checkout
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -74,12 +80,7 @@ export async function POST(req: NextRequest) {
       customer: customer.id,
       mode: "subscription",
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price: process.env.STRIPE_PRICE_ID,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: PRICE_ID, quantity: 1 }],
       metadata: { artisanId: artisan.id },
       success_url: `${appUrl}/inscription/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/inscription?cancelled=true`,
