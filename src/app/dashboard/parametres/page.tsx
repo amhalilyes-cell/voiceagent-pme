@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface Artisan {
   id: string;
@@ -12,7 +13,8 @@ interface Artisan {
   metier: string;
   status: string;
   stripeSubscriptionId?: string;
-  twilio_phone_number?: string;
+  twilioPhoneNumber?: string;
+  refreshToken?: string;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -21,7 +23,10 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   cancelled: { label: "Annulé", color: "bg-gray-100 text-gray-500" },
 };
 
-export default function ParametresPage() {
+function ParametresContent() {
+  const searchParams = useSearchParams();
+  const calendarStatus = searchParams.get("calendar"); // "success" | "error" | null
+
   const [artisan, setArtisan] = useState<Artisan | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -142,11 +147,11 @@ export default function ParametresPage() {
           {/* Numéro dédié */}
           <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h2 className="font-semibold text-gray-900 text-base mb-4">Numéro dédié</h2>
-            {artisan?.twilio_phone_number ? (
+            {artisan?.twilioPhoneNumber ? (
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-lg">📞</div>
                 <div>
-                  <div className="font-semibold text-gray-900">{artisan.twilio_phone_number}</div>
+                  <div className="font-semibold text-gray-900">{artisan.twilioPhoneNumber}</div>
                   <div className="text-xs text-gray-500">Votre numéro VoiceAgent dédié</div>
                 </div>
               </div>
@@ -164,15 +169,38 @@ export default function ParametresPage() {
             <p className="text-sm text-gray-500 mb-4">
               Connectez votre agenda pour que l&apos;agent prenne des RDV automatiquement.
             </p>
-            <a
-              href="/api/calendar"
-              className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.5 3h-2.25V1.5h-1.5V3h-7.5V1.5h-1.5V3H4.5A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zm0 16.5h-15V9h15v10.5zm0-12h-15V4.5h2.25V6h1.5V4.5h7.5V6h1.5V4.5h2.25V7.5z" />
-              </svg>
-              Connecter Google Calendar
-            </a>
+
+            {calendarStatus === "error" && (
+              <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                La connexion a échoué. Réessayez ou contactez le support.
+              </div>
+            )}
+
+            {artisan?.refreshToken || calendarStatus === "success" ? (
+              <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                <span className="text-green-600 text-xl">✅</span>
+                <div>
+                  <div className="text-sm font-semibold text-green-800">Google Calendar connecté</div>
+                  <div className="text-xs text-green-600 mt-0.5">Votre agenda est synchronisé avec l&apos;assistant vocal.</div>
+                </div>
+                <a
+                  href="/api/auth/google/redirect"
+                  className="ml-auto text-xs text-green-700 underline hover:no-underline flex-shrink-0"
+                >
+                  Reconnecter
+                </a>
+              </div>
+            ) : (
+              <a
+                href="/api/auth/google/redirect"
+                className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19.5 3h-2.25V1.5h-1.5V3h-7.5V1.5h-1.5V3H4.5A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zm0 16.5h-15V9h15v10.5zm0-12h-15V4.5h2.25V6h1.5V4.5h7.5V6h1.5V4.5h2.25V7.5z" />
+                </svg>
+                Connecter Google Calendar
+              </a>
+            )}
           </section>
 
           {/* Abonnement Stripe */}
@@ -198,5 +226,19 @@ export default function ParametresPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function ParametresPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-6 max-w-2xl">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 text-sm">
+          Chargement…
+        </div>
+      </div>
+    }>
+      <ParametresContent />
+    </Suspense>
   );
 }
