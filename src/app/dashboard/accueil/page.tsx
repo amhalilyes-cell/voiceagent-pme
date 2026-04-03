@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { AssistantCard } from "./AssistantCard";
 
 export const dynamic = "force-dynamic";
 
@@ -43,13 +44,6 @@ function formatDate(iso?: string) {
   }).format(new Date(iso));
 }
 
-function formatDuration(start?: string, end?: string): string {
-  if (!start || !end) return "–";
-  const s = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
-  const m = Math.floor(s / 60);
-  return m > 0 ? `${m} min ${s % 60} s` : `${s} s`;
-}
-
 function firstSentence(text?: string): string {
   if (!text) return "–";
   const s = text.split(/[.!?]/)[0].trim();
@@ -69,36 +63,44 @@ export default async function AccueilPage() {
     d.setDate(d.getDate() - (6 - i));
     return d;
   });
-  const callsByDay = days.map((day) => ({
-    label: day.toLocaleDateString("fr-FR", { weekday: "short" }),
-    count: calls.filter((c) => {
+  const callsByDay = days.map((day) => {
+    const dayCalls = calls.filter((c) => {
       if (!c.startedAt) return false;
-      const cd = new Date(c.startedAt);
-      return cd.toDateString() === day.toDateString();
-    }).length,
-  }));
+      return new Date(c.startedAt).toDateString() === day.toDateString();
+    });
+    return {
+      label: day.toLocaleDateString("fr-FR", { weekday: "short" }),
+      count: dayCalls.length,
+      rdv: dayCalls.filter((c) => hasRdv(c.summary)).length,
+    };
+  });
   const maxCount = Math.max(...callsByDay.map((d) => d.count), 1);
 
   const recentCalls = calls.slice(0, 5);
-
   const prenom = session?.user?.name?.split(" ")[0] ?? "Artisan";
 
+  const kpis = [
+    { label: "Appels reçus", value: calls.length, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", icon: "📞" },
+    { label: "RDV pris", value: rdvCount, color: "text-green-600", bg: "bg-green-50", border: "border-green-100", icon: "📅" },
+    { label: "Sans suite", value: sansSuite, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", icon: "🚫" },
+  ];
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-5xl">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Bonjour, {prenom} 👋</h1>
         <p className="text-gray-500 text-sm mt-1">Voici votre activité des 7 derniers jours.</p>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: "Appels reçus", value: calls.length, color: "text-blue-600", bg: "bg-blue-50", icon: "📞" },
-          { label: "RDV pris", value: rdvCount, color: "text-green-600", bg: "bg-green-50", icon: "📅" },
-          { label: "Sans suite", value: sansSuite, color: "text-amber-600", bg: "bg-amber-50", icon: "🚫" },
-        ].map((kpi) => (
-          <div key={kpi.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+      {/* Assistant status + KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <AssistantCard />
+        {kpis.map((kpi) => (
+          <div
+            key={kpi.label}
+            className={`bg-white rounded-2xl border ${kpi.border} shadow-sm p-5 flex items-center gap-4`}
+          >
             <div className={`w-12 h-12 ${kpi.bg} rounded-xl flex items-center justify-center text-xl flex-shrink-0`}>
               {kpi.icon}
             </div>
@@ -112,20 +114,47 @@ export default async function AccueilPage() {
 
       {/* Chart */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-sm font-semibold text-gray-900 mb-5">Activité sur 7 jours</h2>
-        <div className="flex items-end gap-2 h-28">
-          {callsByDay.map(({ label, count }) => (
-            <div key={label} className="flex-1 flex flex-col items-center gap-1.5">
-              <span className="text-xs font-medium text-gray-600">{count > 0 ? count : ""}</span>
-              <div className="w-full flex items-end justify-center" style={{ height: "80px" }}>
-                <div
-                  className="w-full bg-blue-600 rounded-t-md transition-all duration-300"
-                  style={{ height: `${Math.max((count / maxCount) * 80, count > 0 ? 6 : 2)}px` }}
-                />
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-sm font-semibold text-gray-900">Activité sur 7 jours</h2>
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block" />
+              Appels
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-green-400 inline-block" />
+              RDV
+            </span>
+          </div>
+        </div>
+        <div className="flex items-end gap-3 h-36">
+          {callsByDay.map(({ label, count, rdv }) => {
+            const barH = Math.max((count / maxCount) * 112, count > 0 ? 8 : 3);
+            const rdvH = count > 0 ? Math.round((rdv / count) * barH) : 0;
+            const nonRdvH = barH - rdvH;
+            return (
+              <div key={label} className="flex-1 flex flex-col items-center gap-1.5">
+                <span className="text-xs font-semibold text-gray-600 h-4">
+                  {count > 0 ? count : ""}
+                </span>
+                <div className="w-full flex flex-col items-center justify-end" style={{ height: "112px" }}>
+                  {count === 0 ? (
+                    <div className="w-full bg-gray-100 rounded-md" style={{ height: "3px" }} />
+                  ) : (
+                    <div className="w-full rounded-t-lg overflow-hidden flex flex-col-reverse" style={{ height: `${barH}px` }}>
+                      {rdvH > 0 && (
+                        <div className="w-full bg-green-400" style={{ height: `${rdvH}px` }} />
+                      )}
+                      {nonRdvH > 0 && (
+                        <div className="w-full bg-blue-500" style={{ height: `${nonRdvH}px` }} />
+                      )}
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400 capitalize">{label}</span>
               </div>
-              <span className="text-xs text-gray-400 capitalize">{label}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -144,20 +173,24 @@ export default async function AccueilPage() {
         ) : (
           <div className="divide-y divide-gray-50">
             {recentCalls.map((call) => (
-              <div key={call.id} className="px-6 py-4 flex items-start gap-4">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-blue-600 text-xs">📞</span>
+              <div key={call.id} className="px-6 py-4 flex items-start gap-4 hover:bg-gray-50 transition-colors">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  hasRdv(call.summary) ? "bg-green-100" : "bg-blue-50"
+                }`}>
+                  <span className="text-sm">{hasRdv(call.summary) ? "📅" : "📞"}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-gray-900">
                       {call.customer?.name ?? call.customer?.phoneNumber ?? "Client inconnu"}
                     </span>
-                    {hasRdv(call.summary) && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">RDV</span>
+                    {hasRdv(call.summary) ? (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✅ RDV</span>
+                    ) : (
+                      <span className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full font-medium">Pas de RDV</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">{firstSentence(call.summary)}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{firstSentence(call.summary)}</p>
                 </div>
                 <div className="text-xs text-gray-400 flex-shrink-0">{formatDate(call.startedAt)}</div>
               </div>

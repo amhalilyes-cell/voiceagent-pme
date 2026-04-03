@@ -1,3 +1,5 @@
+import { CallRow } from "./CallRow";
+
 export const dynamic = "force-dynamic";
 
 const VAPI_BASE_URL = "https://api.vapi.ai";
@@ -6,10 +8,10 @@ interface VapiCall {
   id: string;
   customer?: { name?: string; phoneNumber?: string };
   summary?: string;
+  transcript?: string;
   startedAt?: string;
   endedAt?: string;
   status?: string;
-  endedReason?: string;
 }
 
 async function fetchAllCalls(): Promise<VapiCall[]> {
@@ -61,7 +63,10 @@ export default async function AppelsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Historique des appels</h1>
-          <p className="text-gray-500 text-sm mt-1">{calls.length} appel{calls.length > 1 ? "s" : ""} enregistré{calls.length > 1 ? "s" : ""}</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {calls.length} appel{calls.length > 1 ? "s" : ""} enregistré{calls.length > 1 ? "s" : ""}
+            {calls.length > 0 && " — cliquez sur une ligne pour voir la transcription"}
+          </p>
         </div>
       </div>
 
@@ -79,39 +84,21 @@ export default async function AppelsPage() {
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Date</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Durée</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Demande</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">RDV</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Statut</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {calls.map((call) => (
-                  <tr key={call.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="font-medium text-gray-900">
-                        {call.customer?.name ?? "Inconnu"}
-                      </div>
-                      <div className="text-xs text-gray-400">{call.customer?.phoneNumber ?? "–"}</div>
-                    </td>
-                    <td className="px-5 py-4 text-gray-500 hidden md:table-cell whitespace-nowrap">
-                      {formatDate(call.startedAt)}
-                    </td>
-                    <td className="px-5 py-4 text-gray-500 hidden lg:table-cell whitespace-nowrap">
-                      {formatDuration(call.startedAt, call.endedAt)}
-                    </td>
-                    <td className="px-5 py-4 text-gray-500 max-w-xs">
-                      <span className="line-clamp-2">{firstSentence(call.summary)}</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      {hasRdv(call.summary) ? (
-                        <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                          ✓ RDV
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center bg-gray-100 text-gray-500 text-xs font-medium px-2.5 py-1 rounded-full">
-                          –
-                        </span>
-                      )}
-                    </td>
-                  </tr>
+                  <CallRow
+                    key={call.id}
+                    name={call.customer?.name ?? "Inconnu"}
+                    phone={call.customer?.phoneNumber ?? ""}
+                    date={formatDate(call.startedAt)}
+                    duration={formatDuration(call.startedAt, call.endedAt)}
+                    summary={firstSentence(call.summary)}
+                    transcript={call.transcript}
+                    hasRdv={hasRdv(call.summary)}
+                  />
                 ))}
               </tbody>
             </table>

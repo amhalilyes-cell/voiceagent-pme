@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useAssistantStatus } from "@/providers/AssistantStatusContext";
 
 interface SidebarProps {
   userName: string;
@@ -40,6 +41,18 @@ const NAV = [
   },
 ];
 
+function StatusDot() {
+  const { active } = useAssistantStatus();
+  return (
+    <span
+      className={`w-2 h-2 rounded-full flex-shrink-0 ${
+        active ? "bg-green-500" : "bg-red-400"
+      }`}
+      title={active ? "Assistant actif" : "Assistant désactivé"}
+    />
+  );
+}
+
 function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
   return (
     <nav className="flex flex-col h-full">
@@ -49,6 +62,7 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
           <span className="text-white font-bold text-sm">V</span>
         </div>
         <span className="font-semibold text-gray-900 text-sm">VoiceAgent PME</span>
+        <StatusDot />
       </div>
 
       {/* Nav links */}
@@ -111,6 +125,7 @@ export function Sidebar({ userName, userEmail }: SidebarProps) {
             <span className="text-white font-bold text-xs">V</span>
           </div>
           <span className="font-semibold text-gray-900 text-sm">VoiceAgent PME</span>
+          <StatusDot />
         </div>
         <div className="ml-auto text-xs text-gray-500 truncate max-w-[140px]">{userName}</div>
       </div>
