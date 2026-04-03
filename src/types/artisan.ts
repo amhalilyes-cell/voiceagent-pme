@@ -26,4 +26,9 @@ export interface Artisan {
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   createdAt: string;
+  // Auth & config
+  passwordHash?: string;
+  refreshToken?: string;
+  vapiAssistantId?: string;
+  twilioPhoneNumber?: string;
 }

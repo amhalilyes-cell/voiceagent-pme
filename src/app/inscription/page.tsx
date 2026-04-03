@@ -32,6 +32,8 @@ function InscriptionForm() {
     telephone: "",
     nomEntreprise: "",
     metier: "" as MetierType | "",
+    motDePasse: "",
+    confirmerMotDePasse: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,13 +47,31 @@ function InscriptionForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (form.motDePasse.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    if (form.motDePasse !== form.confirmerMotDePasse) {
+      setError("Les mots de passe ne correspondent pas.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/inscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          prenom: form.prenom,
+          nom: form.nom,
+          email: form.email,
+          telephone: form.telephone,
+          nomEntreprise: form.nomEntreprise,
+          metier: form.metier,
+          motDePasse: form.motDePasse,
+        }),
       });
 
       const data = await res.json();
@@ -200,6 +220,37 @@ function InscriptionForm() {
               </select>
             </div>
 
+            {/* Mot de passe */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mot de passe <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                name="motDePasse"
+                value={form.motDePasse}
+                onChange={handleChange}
+                placeholder="8 caractères minimum"
+                required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirmer le mot de passe <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                name="confirmerMotDePasse"
+                value={form.confirmerMotDePasse}
+                onChange={handleChange}
+                placeholder="Répétez votre mot de passe"
+                required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
             {/* Erreur */}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
@@ -224,8 +275,8 @@ function InscriptionForm() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Déjà inscrit ?{" "}
-          <a href="/dashboard" className="text-blue-600 hover:underline">
-            Accéder au tableau de bord
+          <a href="/login" className="text-blue-600 hover:underline font-medium">
+            Se connecter
           </a>
         </p>
       </div>

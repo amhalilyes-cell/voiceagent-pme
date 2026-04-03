@@ -14,6 +14,10 @@ interface ArtisanRow {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   created_at: string;
+  password_hash: string | null;
+  refresh_token: string | null;
+  vapi_assistant_id: string | null;
+  twilio_phone_number: string | null;
 }
 
 function toArtisan(row: ArtisanRow): Artisan {
@@ -29,6 +33,10 @@ function toArtisan(row: ArtisanRow): Artisan {
     stripeCustomerId: row.stripe_customer_id ?? undefined,
     stripeSubscriptionId: row.stripe_subscription_id ?? undefined,
     createdAt: row.created_at,
+    passwordHash: row.password_hash ?? undefined,
+    refreshToken: row.refresh_token ?? undefined,
+    vapiAssistantId: row.vapi_assistant_id ?? undefined,
+    twilioPhoneNumber: row.twilio_phone_number ?? undefined,
   };
 }
 
@@ -45,6 +53,10 @@ function toRow(artisan: Artisan): ArtisanRow {
     stripe_customer_id: artisan.stripeCustomerId ?? null,
     stripe_subscription_id: artisan.stripeSubscriptionId ?? null,
     created_at: artisan.createdAt,
+    password_hash: artisan.passwordHash ?? null,
+    refresh_token: artisan.refreshToken ?? null,
+    vapi_assistant_id: artisan.vapiAssistantId ?? null,
+    twilio_phone_number: artisan.twilioPhoneNumber ?? null,
   };
 }
 
@@ -147,6 +159,10 @@ export async function updateArtisan(
   if (patch.status !== undefined) rowPatch.status = patch.status;
   if (patch.stripeCustomerId !== undefined) rowPatch.stripe_customer_id = patch.stripeCustomerId;
   if (patch.stripeSubscriptionId !== undefined) rowPatch.stripe_subscription_id = patch.stripeSubscriptionId;
+  if (patch.passwordHash !== undefined) rowPatch.password_hash = patch.passwordHash;
+  if (patch.refreshToken !== undefined) rowPatch.refresh_token = patch.refreshToken;
+  if (patch.vapiAssistantId !== undefined) rowPatch.vapi_assistant_id = patch.vapiAssistantId;
+  if (patch.twilioPhoneNumber !== undefined) rowPatch.twilio_phone_number = patch.twilioPhoneNumber;
 
   try {
     const { data, error } = await getSupabase()

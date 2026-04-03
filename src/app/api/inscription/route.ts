@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getStripe } from "@/lib/stripe";
 import { saveArtisan, findArtisanByEmail } from "@/lib/storage";
+import { hashPassword } from "@/lib/auth";
 import type { Artisan, MetierType } from "@/types/artisan";
 
 export async function POST(req: NextRequest) {
@@ -12,6 +13,7 @@ export async function POST(req: NextRequest) {
     telephone: string;
     nomEntreprise: string;
     metier: MetierType;
+    motDePasse?: string;
   };
 
   try {
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Corps de requête invalide" }, { status: 400 });
   }
 
-  const { prenom, nom, email, telephone, nomEntreprise, metier } = body;
+  const { prenom, nom, email, telephone, nomEntreprise, metier, motDePasse } = body;
 
   if (!prenom || !nom || !email || !telephone || !nomEntreprise || !metier) {
     return NextResponse.json(
@@ -45,6 +47,9 @@ export async function POST(req: NextRequest) {
       console.warn("[api/inscription] Vérification doublon ignorée (Supabase injoignable):", dbErr);
     }
 
+    // Hash du mot de passe
+    const passwordHash = motDePasse ? await hashPassword(motDePasse) : undefined;
+
     // Crée le client Stripe
     const stripe = getStripe();
     const customer = await stripe.customers.create({
@@ -66,6 +71,7 @@ export async function POST(req: NextRequest) {
       status: "pending",
       stripeCustomerId: customer.id,
       createdAt: new Date().toISOString(),
+      passwordHash,
     };
     try {
       await saveArtisan(artisan);
