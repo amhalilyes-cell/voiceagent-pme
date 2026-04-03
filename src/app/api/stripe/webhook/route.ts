@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
-import { updateArtisan, findArtisanByStripeCustomerId } from "@/lib/storage";
+import { updateArtisan, findArtisanById, findArtisanByStripeCustomerId } from "@/lib/storage";
+import { createVapiAssistant, provisionPhoneNumber, sendWelcomeEmail } from "@/lib/onboarding";
 import type Stripe from "stripe";
 
 /**
  * POST /api/stripe/webhook
  * Configurer dans Stripe Dashboard → Webhooks :
- *   Endpoint URL : https://votre-domaine.com/api/stripe/webhook
+ *   Endpoint URL : https://voiceagent-pme.vercel.app/api/stripe/webhook
  *   Événements : checkout.session.completed, customer.subscription.deleted
  */
 export async function POST(req: NextRequest) {
@@ -35,13 +36,58 @@ export async function POST(req: NextRequest) {
           ? session.subscription
           : session.subscription?.id;
 
-      if (artisanId) {
-        await updateArtisan(artisanId, {
-          status: "active",
-          stripeSubscriptionId: subscriptionId,
-        });
-        console.log(`[Stripe] Artisan ${artisanId} activé — sub: ${subscriptionId}`);
+      if (!artisanId) {
+        console.warn("[Stripe Webhook] checkout.session.completed sans artisanId dans metadata");
+        break;
       }
+
+      // 1. Active l'abonnement
+      await updateArtisan(artisanId, {
+        status: "active",
+        stripeSubscriptionId: subscriptionId,
+      });
+      console.log(`[Stripe] Artisan ${artisanId} activé — sub: ${subscriptionId}`);
+
+      // 2. Charge l'artisan pour l'onboarding
+      const artisan = await findArtisanById(artisanId);
+      if (!artisan) {
+        console.error(`[Stripe Webhook] Artisan ${artisanId} introuvable en DB`);
+        break;
+      }
+
+      // 3. Crée l'assistant Vapi
+      let vapiAssistantId: string | undefined;
+      try {
+        vapiAssistantId = await createVapiAssistant(artisan);
+        await updateArtisan(artisanId, { vapiAssistantId });
+        console.log(`[Onboarding] Vapi assistant ${vapiAssistantId} sauvegardé pour ${artisanId}`);
+      } catch (err) {
+        console.error("[Onboarding] Création assistant Vapi échouée:", err);
+        // Non-bloquant : on continue l'onboarding
+      }
+
+      // 4. Achète et connecte le numéro Twilio
+      let phoneNumber: string | undefined;
+      try {
+        phoneNumber = await provisionPhoneNumber(vapiAssistantId ?? "");
+        await updateArtisan(artisanId, { twilioPhoneNumber: phoneNumber });
+        console.log(`[Onboarding] Numéro ${phoneNumber} sauvegardé pour ${artisanId}`);
+      } catch (err) {
+        console.error("[Onboarding] Provisionnement Twilio échoué:", err);
+        // Non-bloquant
+      }
+
+      // 5. Envoie l'email de bienvenue
+      if (phoneNumber) {
+        try {
+          const updatedArtisan = await findArtisanById(artisanId);
+          await sendWelcomeEmail(updatedArtisan ?? artisan, phoneNumber);
+        } catch (err) {
+          console.error("[Onboarding] Email de bienvenue échoué:", err);
+          // Non-bloquant
+        }
+      }
+
       break;
     }
 

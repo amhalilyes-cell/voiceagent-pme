@@ -1,3 +1,6 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { findArtisanById } from "@/lib/storage";
 import { CallRow } from "./CallRow";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +17,13 @@ interface VapiCall {
   status?: string;
 }
 
-async function fetchAllCalls(): Promise<VapiCall[]> {
+async function fetchAllCalls(assistantId?: string): Promise<VapiCall[]> {
   const apiKey = process.env.VAPI_API_KEY;
   if (!apiKey) return [];
+  const params = new URLSearchParams({ limit: "100" });
+  if (assistantId) params.set("assistantId", assistantId);
   try {
-    const res = await fetch(`${VAPI_BASE_URL}/call?limit=100`, {
+    const res = await fetch(`${VAPI_BASE_URL}/call?${params.toString()}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       cache: "no-store",
     });
@@ -56,7 +61,9 @@ function firstSentence(text?: string): string {
 }
 
 export default async function AppelsPage() {
-  const calls = await fetchAllCalls();
+  const session = await getServerSession(authOptions);
+  const artisan = session?.user?.id ? await findArtisanById(session.user.id).catch(() => null) : null;
+  const calls = await fetchAllCalls(artisan?.vapiAssistantId);
 
   return (
     <div className="p-6 space-y-6">

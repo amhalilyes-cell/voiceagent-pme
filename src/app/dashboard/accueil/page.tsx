@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { findArtisanById } from "@/lib/storage";
 import { AssistantCard } from "./AssistantCard";
 
 export const dynamic = "force-dynamic";
@@ -15,14 +16,16 @@ interface VapiCall {
   status?: string;
 }
 
-async function fetchWeekCalls(): Promise<VapiCall[]> {
+async function fetchWeekCalls(assistantId?: string): Promise<VapiCall[]> {
   const apiKey = process.env.VAPI_API_KEY;
   if (!apiKey) return [];
   const since = new Date();
   since.setDate(since.getDate() - 7);
+  const params = new URLSearchParams({ limit: "100", createdAtGt: since.toISOString() });
+  if (assistantId) params.set("assistantId", assistantId);
   try {
     const res = await fetch(
-      `${VAPI_BASE_URL}/call?limit=100&createdAtGt=${since.toISOString()}`,
+      `${VAPI_BASE_URL}/call?${params.toString()}`,
       { headers: { Authorization: `Bearer ${apiKey}` }, cache: "no-store" }
     );
     if (!res.ok) return [];
@@ -52,7 +55,8 @@ function firstSentence(text?: string): string {
 
 export default async function AccueilPage() {
   const session = await getServerSession(authOptions);
-  const calls = await fetchWeekCalls();
+  const artisan = session?.user?.id ? await findArtisanById(session.user.id).catch(() => null) : null;
+  const calls = await fetchWeekCalls(artisan?.vapiAssistantId);
 
   const rdvCount = calls.filter((c) => hasRdv(c.summary)).length;
   const sansSuite = calls.length - rdvCount;
