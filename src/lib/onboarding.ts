@@ -347,3 +347,226 @@ export async function sendWelcomeEmail(artisan: Artisan, phoneNumber: string): P
 
   console.log(`[Onboarding] Email de bienvenue envoyé à ${artisan.email}`);
 }
+
+// ─────────────────────────────────────────────
+// 4. VAPI — Pause / Réactivation
+// ─────────────────────────────────────────────
+
+export async function setVapiAssistantActive(assistantId: string, active: boolean): Promise<void> {
+  const apiKey = process.env.VAPI_API_KEY;
+  if (!apiKey) throw new Error("[Vapi] VAPI_API_KEY manquante");
+
+  const res = await fetch(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ isActive: active }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[Vapi] setAssistantActive(${active}) échoué pour ${assistantId}: ${err}`);
+  }
+
+  console.log(`[Vapi] Assistant ${assistantId} ${active ? "réactivé" : "mis en pause"}`);
+}
+
+// ─────────────────────────────────────────────
+// 5. EMAIL — Essai gratuit (au moment de l'inscription)
+// ─────────────────────────────────────────────
+
+const TEST_PHONE = "+1 501 512 2960";
+const TEST_PHONE_RAW = "+15015122960";
+
+function buildTrialWelcomeHtml(artisan: Artisan): string {
+  const dashboardUrl = `${APP_URL}/dashboard/accueil`;
+  const callForwardCode = `**21*${TEST_PHONE_RAW}#`;
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);border-radius:16px 16px 0 0;padding:32px;">
+            <div style="display:inline-flex;align-items:center;gap:10px;">
+              <div style="width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:10px;display:inline-block;text-align:center;line-height:36px;">
+                <span style="color:#fff;font-weight:700;font-size:16px;">V</span>
+              </div>
+              <span style="color:#fff;font-weight:700;font-size:16px;margin-left:8px;">VoiceAgent PME</span>
+            </div>
+            <p style="color:#ddd6fe;font-size:13px;margin:8px 0 0;">Votre essai gratuit de 7 jours commence maintenant</p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="background:#fff;padding:36px 32px;">
+            <h2 style="margin:0 0 8px;font-size:22px;color:#111827;font-weight:700;">
+              Bienvenue, ${artisan.prenom} ! 🎉
+            </h2>
+            <p style="margin:0 0 28px;color:#6b7280;font-size:15px;line-height:1.6;">
+              Votre assistant vocal de test est configuré. Testez-le dès maintenant en l'appelant ou en activant le renvoi d'appel sur votre téléphone.
+            </p>
+
+            <!-- Numéro de test -->
+            <div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%);border:2px solid #c4b5fd;border-radius:14px;padding:24px;margin-bottom:28px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.08em;">Numéro de test</p>
+              <p style="margin:0;font-size:28px;font-weight:800;color:#4c1d95;letter-spacing:.02em;">${TEST_PHONE}</p>
+              <p style="margin:8px 0 0;font-size:13px;color:#6d28d9;">Appelez ce numéro pour tester votre assistant vocal</p>
+            </div>
+
+            <!-- Guide de renvoi d'appel -->
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:24px;margin-bottom:28px;">
+              <h3 style="margin:0 0 14px;font-size:15px;font-weight:700;color:#14532d;">
+                📱 Activer le renvoi d'appel maintenant
+              </h3>
+              <p style="margin:0 0 16px;color:#166534;font-size:14px;line-height:1.6;">
+                Pour que l'assistant réponde à vos vrais clients pendant l'essai, activez le renvoi d'appel :
+              </p>
+              <div style="background:#fff;border:2px solid #86efac;border-radius:10px;padding:16px 20px;text-align:center;margin-bottom:14px;">
+                <p style="margin:0 0 4px;font-size:12px;color:#6b7280;font-weight:600;">CODE À COMPOSER</p>
+                <p style="margin:0;font-size:22px;font-weight:800;color:#15803d;font-family:monospace;">${callForwardCode}</p>
+              </div>
+              <p style="margin:0;font-size:12px;color:#166534;">
+                Pour désactiver : <strong>##21#</strong>
+              </p>
+            </div>
+
+            <!-- Après l'essai -->
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:20px;margin-bottom:28px;">
+              <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#92400e;">📦 Après votre essai gratuit</p>
+              <p style="margin:0;font-size:13px;color:#92400e;line-height:1.6;">
+                En souscrivant à l'offre VoiceAgent PME (500 €/mois), vous recevrez un <strong>numéro français dédié</strong> (+33) configuré exclusivement pour votre entreprise.
+              </p>
+            </div>
+
+            <!-- CTA -->
+            <div style="text-align:center;">
+              <a href="${dashboardUrl}"
+                style="display:inline-block;background:#7c3aed;color:#fff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">
+                Accéder à mon tableau de bord →
+              </a>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f9fafb;border-top:1px solid #e5e7eb;border-radius:0 0 16px 16px;padding:20px 32px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+              Essai gratuit de 7 jours — VoiceAgent PME<br>
+              Une question ? Répondez directement à cet email.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendTrialWelcomeEmail(artisan: Artisan): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("[Onboarding] RESEND_API_KEY manquante");
+
+  const resend = new Resend(apiKey);
+  const from = process.env.RESEND_FROM_EMAIL ?? "notifications@voiceagentpme.fr";
+
+  const { error } = await resend.emails.send({
+    from,
+    to: artisan.email,
+    subject: `🎉 Votre assistant de test VoiceAgent est prêt — Appelez le ${TEST_PHONE}`,
+    html: buildTrialWelcomeHtml(artisan),
+  });
+
+  if (error) {
+    throw new Error(`[Onboarding] sendTrialWelcomeEmail Resend error: ${JSON.stringify(error)}`);
+  }
+
+  console.log(`[Onboarding] Email d'essai envoyé à ${artisan.email}`);
+}
+
+// ─────────────────────────────────────────────
+// 6. EMAIL — Réactivation après paiement
+// ─────────────────────────────────────────────
+
+export async function sendReactivationEmail(artisan: Artisan, phoneNumber: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("[Onboarding] RESEND_API_KEY manquante");
+
+  const resend = new Resend(apiKey);
+  const from = process.env.RESEND_FROM_EMAIL ?? "notifications@voiceagentpme.fr";
+  const dashboardUrl = `${APP_URL}/dashboard/accueil`;
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#059669 0%,#047857 100%);border-radius:16px 16px 0 0;padding:32px;">
+            <div style="display:inline-flex;align-items:center;gap:10px;">
+              <div style="width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:10px;text-align:center;line-height:36px;display:inline-block;">
+                <span style="color:#fff;font-weight:700;font-size:16px;">V</span>
+              </div>
+              <span style="color:#fff;font-weight:700;font-size:16px;margin-left:8px;">VoiceAgent PME</span>
+            </div>
+            <p style="color:#a7f3d0;font-size:13px;margin:8px 0 0;">Votre assistant est de retour !</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#fff;padding:36px 32px;">
+            <h2 style="margin:0 0 8px;font-size:22px;color:#111827;font-weight:700;">
+              Votre assistant est réactivé ! 🎉
+            </h2>
+            <p style="margin:0 0 24px;color:#6b7280;font-size:15px;line-height:1.6;">
+              Bonjour ${artisan.prenom}, votre abonnement VoiceAgent PME est actif.
+              Votre assistant <strong>${artisan.nomEntreprise}</strong> répond à nouveau à vos clients.
+            </p>
+            <div style="background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%);border:2px solid #6ee7b7;border-radius:14px;padding:24px;margin-bottom:28px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.08em;">Votre numéro dédié</p>
+              <p style="margin:0;font-size:28px;font-weight:800;color:#065f46;">${phoneNumber}</p>
+            </div>
+            <div style="text-align:center;">
+              <a href="${dashboardUrl}"
+                style="display:inline-block;background:#059669;color:#fff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">
+                Accéder à mon tableau de bord →
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f9fafb;border-top:1px solid #e5e7eb;border-radius:0 0 16px 16px;padding:16px 32px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">VoiceAgent PME — abonnement actif</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const { error } = await resend.emails.send({
+    from,
+    to: artisan.email,
+    subject: `✅ Votre assistant vocal ${artisan.nomEntreprise} est réactivé !`,
+    html,
+  });
+
+  if (error) {
+    throw new Error(`[Onboarding] sendReactivationEmail Resend error: ${JSON.stringify(error)}`);
+  }
+
+  console.log(`[Onboarding] Email de réactivation envoyé à ${artisan.email}`);
+}

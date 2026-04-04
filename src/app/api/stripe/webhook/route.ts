@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { updateArtisan, findArtisanById, findArtisanByStripeCustomerId } from "@/lib/storage";
-import { createVapiAssistant, provisionPhoneNumber, sendWelcomeEmail } from "@/lib/onboarding";
+import {
+  createVapiAssistant,
+  provisionPhoneNumber,
+  sendWelcomeEmail,
+  setVapiAssistantActive,
+  sendReactivationEmail,
+} from "@/lib/onboarding";
 import type Stripe from "stripe";
 
 /**
@@ -48,43 +54,76 @@ export async function POST(req: NextRequest) {
       });
       console.log(`[Stripe] Artisan ${artisanId} activé — sub: ${subscriptionId}`);
 
-      // 2. Charge l'artisan pour l'onboarding
+      // 2. Charge l'artisan
       const artisan = await findArtisanById(artisanId);
       if (!artisan) {
         console.error(`[Stripe Webhook] Artisan ${artisanId} introuvable en DB`);
         break;
       }
 
-      // 3. Crée l'assistant Vapi
-      let vapiAssistantId: string | undefined;
-      try {
-        vapiAssistantId = await createVapiAssistant(artisan);
-        await updateArtisan(artisanId, { vapiAssistantId });
-        console.log(`[Onboarding] Vapi assistant ${vapiAssistantId} sauvegardé pour ${artisanId}`);
-      } catch (err) {
-        console.error("[Onboarding] Création assistant Vapi échouée:", err);
-        // Non-bloquant : on continue l'onboarding
-      }
+      // ── CAS A : artisan avait déjà un assistant (essai puis paiement ou réabonnement) ──
+      if (artisan.vapiAssistantId) {
+        console.log(`[Stripe] Réactivation de l'assistant existant ${artisan.vapiAssistantId}`);
 
-      // 4. Achète et connecte le numéro Twilio
-      let phoneNumber: string | undefined;
-      try {
-        phoneNumber = await provisionPhoneNumber(vapiAssistantId ?? "");
-        await updateArtisan(artisanId, { twilioPhoneNumber: phoneNumber });
-        console.log(`[Onboarding] Numéro ${phoneNumber} sauvegardé pour ${artisanId}`);
-      } catch (err) {
-        console.error("[Onboarding] Provisionnement Twilio échoué:", err);
-        // Non-bloquant
-      }
-
-      // 5. Envoie l'email de bienvenue
-      if (phoneNumber) {
+        // 3a. Réactive l'assistant Vapi
         try {
-          const updatedArtisan = await findArtisanById(artisanId);
-          await sendWelcomeEmail(updatedArtisan ?? artisan, phoneNumber);
+          await setVapiAssistantActive(artisan.vapiAssistantId, true);
         } catch (err) {
-          console.error("[Onboarding] Email de bienvenue échoué:", err);
-          // Non-bloquant
+          console.error("[Onboarding] Réactivation Vapi échouée (non-bloquant):", err);
+        }
+
+        // 3b. Achète un numéro Twilio si l'artisan n'en a pas encore
+        let phoneNumber = artisan.twilioPhoneNumber;
+        if (!phoneNumber) {
+          try {
+            phoneNumber = await provisionPhoneNumber(artisan.vapiAssistantId);
+            await updateArtisan(artisanId, { twilioPhoneNumber: phoneNumber });
+            console.log(`[Onboarding] Numéro ${phoneNumber} provisionné pour ${artisanId}`);
+          } catch (err) {
+            console.error("[Onboarding] Provisionnement Twilio échoué (non-bloquant):", err);
+          }
+        }
+
+        // 3c. Email de réactivation
+        if (phoneNumber) {
+          try {
+            const updatedArtisan = await findArtisanById(artisanId);
+            await sendReactivationEmail(updatedArtisan ?? artisan, phoneNumber);
+          } catch (err) {
+            console.error("[Onboarding] Email de réactivation échoué (non-bloquant):", err);
+          }
+        }
+      } else {
+        // ── CAS B : premier paiement, onboarding complet ──
+
+        // 3. Crée l'assistant Vapi
+        let vapiAssistantId: string | undefined;
+        try {
+          vapiAssistantId = await createVapiAssistant(artisan);
+          await updateArtisan(artisanId, { vapiAssistantId });
+          console.log(`[Onboarding] Vapi assistant ${vapiAssistantId} sauvegardé pour ${artisanId}`);
+        } catch (err) {
+          console.error("[Onboarding] Création assistant Vapi échouée (non-bloquant):", err);
+        }
+
+        // 4. Achète et connecte le numéro Twilio
+        let phoneNumber: string | undefined;
+        try {
+          phoneNumber = await provisionPhoneNumber(vapiAssistantId ?? "");
+          await updateArtisan(artisanId, { twilioPhoneNumber: phoneNumber });
+          console.log(`[Onboarding] Numéro ${phoneNumber} sauvegardé pour ${artisanId}`);
+        } catch (err) {
+          console.error("[Onboarding] Provisionnement Twilio échoué (non-bloquant):", err);
+        }
+
+        // 5. Envoie l'email de bienvenue
+        if (phoneNumber) {
+          try {
+            const updatedArtisan = await findArtisanById(artisanId);
+            await sendWelcomeEmail(updatedArtisan ?? artisan, phoneNumber);
+          } catch (err) {
+            console.error("[Onboarding] Email de bienvenue échoué (non-bloquant):", err);
+          }
         }
       }
 

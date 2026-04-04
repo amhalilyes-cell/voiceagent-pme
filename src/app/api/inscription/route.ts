@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { getStripe } from "@/lib/stripe";
 import { saveArtisan, findArtisanByEmail } from "@/lib/storage";
 import { hashPassword } from "@/lib/auth";
+import { sendTrialWelcomeEmail } from "@/lib/onboarding";
 import type { Artisan, MetierType } from "@/types/artisan";
 
 export async function POST(req: NextRequest) {
@@ -80,6 +81,11 @@ export async function POST(req: NextRequest) {
     } catch (dbErr) {
       console.error("[api/inscription] Sauvegarde artisan échouée (Supabase injoignable):", dbErr);
     }
+
+    // Envoie l'email d'essai (non-bloquant)
+    sendTrialWelcomeEmail(artisan).catch((err) =>
+      console.error("[api/inscription] Email d'essai échoué (non-bloquant):", err)
+    );
 
     // Crée la session Stripe Checkout
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

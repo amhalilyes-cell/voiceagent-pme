@@ -83,6 +83,22 @@ function formatError(context: string, err: unknown): Error {
   return new Error(`Supabase ${context}: ${String(err)}`);
 }
 
+export async function findExpiredTrialArtisans(): Promise<Artisan[]> {
+  try {
+    const { data, error } = await getSupabase()
+      .from("artisans")
+      .select("*")
+      .lt("trial_ends_at", new Date().toISOString())
+      .eq("status", "pending")
+      .not("vapi_assistant_id", "is", null);
+
+    if (error) throw new Error(error.message);
+    return (data as ArtisanRow[]).map(toArtisan);
+  } catch (err) {
+    throw formatError("findExpiredTrialArtisans", err);
+  }
+}
+
 export async function readArtisans(): Promise<Artisan[]> {
   try {
     const { data, error } = await getSupabase()

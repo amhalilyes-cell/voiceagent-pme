@@ -12,7 +12,7 @@ export type MetierType =
   | "climaticien"
   | "autre";
 
-export type ArtisanStatus = "pending" | "active" | "cancelled";
+export type ArtisanStatus = "pending" | "active" | "cancelled" | "trial_expired";
 
 export interface Artisan {
   id: string;
