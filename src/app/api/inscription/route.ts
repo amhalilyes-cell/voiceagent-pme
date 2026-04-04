@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Sauvegarde l'artisan — non-bloquant si Supabase est injoignable
+    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const artisan: Artisan = {
       id: randomUUID(),
       prenom,
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
       stripeCustomerId: customer.id,
       createdAt: new Date().toISOString(),
       passwordHash,
+      trialEndsAt,
     };
     try {
       await saveArtisan(artisan);

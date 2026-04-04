@@ -18,6 +18,9 @@ interface ArtisanRow {
   refresh_token: string | null;
   vapi_assistant_id: string | null;
   twilio_phone_number: string | null;
+  trial_ends_at: string | null;
+  reset_token: string | null;
+  reset_token_expires: string | null;
 }
 
 function toArtisan(row: ArtisanRow): Artisan {
@@ -37,6 +40,9 @@ function toArtisan(row: ArtisanRow): Artisan {
     refreshToken: row.refresh_token ?? undefined,
     vapiAssistantId: row.vapi_assistant_id ?? undefined,
     twilioPhoneNumber: row.twilio_phone_number ?? undefined,
+    trialEndsAt: row.trial_ends_at ?? undefined,
+    resetToken: row.reset_token ?? undefined,
+    resetTokenExpires: row.reset_token_expires ?? undefined,
   };
 }
 
@@ -57,6 +63,9 @@ function toRow(artisan: Artisan): ArtisanRow {
     refresh_token: artisan.refreshToken ?? null,
     vapi_assistant_id: artisan.vapiAssistantId ?? null,
     twilio_phone_number: artisan.twilioPhoneNumber ?? null,
+    trial_ends_at: artisan.trialEndsAt ?? null,
+    reset_token: artisan.resetToken ?? null,
+    reset_token_expires: artisan.resetTokenExpires ?? null,
   };
 }
 
@@ -145,6 +154,33 @@ export async function findArtisanByStripeCustomerId(customerId: string): Promise
   }
 }
 
+export async function clearResetToken(id: string): Promise<void> {
+  try {
+    const { error } = await getSupabase()
+      .from("artisans")
+      .update({ reset_token: null, reset_token_expires: null })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    throw formatError("clearResetToken", err);
+  }
+}
+
+export async function findArtisanByResetToken(token: string): Promise<Artisan | undefined> {
+  try {
+    const { data, error } = await getSupabase()
+      .from("artisans")
+      .select("*")
+      .eq("reset_token", token)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data ? toArtisan(data as ArtisanRow) : undefined;
+  } catch (err) {
+    throw formatError("findArtisanByResetToken", err);
+  }
+}
+
 export async function updateArtisan(
   id: string,
   patch: Partial<Artisan>
@@ -163,6 +199,9 @@ export async function updateArtisan(
   if (patch.refreshToken !== undefined) rowPatch.refresh_token = patch.refreshToken;
   if (patch.vapiAssistantId !== undefined) rowPatch.vapi_assistant_id = patch.vapiAssistantId;
   if (patch.twilioPhoneNumber !== undefined) rowPatch.twilio_phone_number = patch.twilioPhoneNumber;
+  if (patch.trialEndsAt !== undefined) rowPatch.trial_ends_at = patch.trialEndsAt;
+  if (patch.resetToken !== undefined) rowPatch.reset_token = patch.resetToken;
+  if (patch.resetTokenExpires !== undefined) rowPatch.reset_token_expires = patch.resetTokenExpires;
 
   try {
     const { data, error } = await getSupabase()

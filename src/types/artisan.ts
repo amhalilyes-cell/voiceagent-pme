@@ -31,4 +31,8 @@ export interface Artisan {
   refreshToken?: string;
   vapiAssistantId?: string;
   twilioPhoneNumber?: string;
+  // Trial & password reset
+  trialEndsAt?: string;
+  resetToken?: string;
+  resetTokenExpires?: string;
 }

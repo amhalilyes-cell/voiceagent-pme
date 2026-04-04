@@ -16,6 +16,7 @@ interface Artisan {
   stripeSubscriptionId?: string;
   twilioPhoneNumber?: string;
   refreshToken?: string;
+  trialEndsAt?: string;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -72,12 +73,41 @@ function ParametresContent() {
 
   const status = artisan ? (STATUS_LABELS[artisan.status] ?? STATUS_LABELS.pending) : null;
 
+  // Calcul des jours restants d'essai
+  const trialDaysLeft = (() => {
+    if (!artisan?.trialEndsAt || artisan.status === "active") return null;
+    const diff = new Date(artisan.trialEndsAt).getTime() - Date.now();
+    if (diff <= 0) return null;
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  })();
+
   return (
     <div className="p-6 space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
         <p className="text-gray-500 text-sm mt-1">Gérez votre compte et votre configuration.</p>
       </div>
+
+      {/* Bandeau essai gratuit */}
+      {trialDaysLeft !== null && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+          <span className="text-2xl flex-shrink-0">⏳</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-amber-900">
+              Essai gratuit — {trialDaysLeft} jour{trialDaysLeft > 1 ? "s" : ""} restant{trialDaysLeft > 1 ? "s" : ""}
+            </div>
+            <div className="text-xs text-amber-700 mt-0.5">
+              Après l&apos;essai, votre assistant sera suspendu sans abonnement actif.
+            </div>
+          </div>
+          <a
+            href="/inscription"
+            className="flex-shrink-0 bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-amber-600 transition-colors"
+          >
+            S&apos;abonner
+          </a>
+        </div>
+      )}
 
       {/* Toggle assistant vocal */}
       <section

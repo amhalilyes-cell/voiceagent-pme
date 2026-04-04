@@ -17,7 +17,7 @@ export const authOptions: NextAuthOptions = {
         try {
           const { data } = await getSupabase()
             .from("artisans")
-            .select("id, email, prenom, nom, password_hash, status")
+            .select("id, email, prenom, nom, password_hash, status, trial_ends_at")
             .eq("email", credentials.email)
             .maybeSingle();
 
@@ -30,6 +30,9 @@ export const authOptions: NextAuthOptions = {
             id: data.id,
             email: data.email,
             name: `${data.prenom} ${data.nom}`,
+            // Pass through for JWT
+            status: data.status,
+            trialEndsAt: data.trial_ends_at ?? undefined,
           };
         } catch (err) {
           console.error("[Auth] Erreur autorisation:", err);
@@ -42,11 +45,19 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: "/login" },
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+        token.id = user.id;
+        token.status = (user as { status?: string }).status;
+        token.trialEndsAt = (user as { trialEndsAt?: string }).trialEndsAt;
+      }
       return token;
     },
     session({ session, token }) {
-      if (session.user) session.user.id = token.id;
+      if (session.user) {
+        session.user.id = token.id;
+        session.user.status = token.status as string | undefined;
+        session.user.trialEndsAt = token.trialEndsAt as string | undefined;
+      }
       return session;
     },
   },
