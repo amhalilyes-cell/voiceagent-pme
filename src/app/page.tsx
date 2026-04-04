@@ -23,12 +23,20 @@ export default function HomePage() {
               Tarifs
             </a>
           </div>
-          <a
-            href="#contact"
-            className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Essai gratuit
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="/login"
+              className="text-blue-600 text-sm font-medium hover:text-blue-700 transition-colors"
+            >
+              Se connecter
+            </a>
+            <a
+              href="#contact"
+              className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Essai gratuit
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -49,7 +57,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href="#contact"
+              href="/inscription"
               className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-xl hover:bg-blue-700 transition-colors text-lg"
             >
               Démarrer gratuitement
