@@ -95,8 +95,17 @@ export async function handleVapiEvent(
       const callDate = call.startedAt ?? call.endedAt;
       const callDateParis = callDate ? toParisTime(callDate) : undefined;
 
-      // Détection RDV pour le SMS et la sauvegarde
-      const rdvInfo = extractRdvFromText(report.summary + " " + report.transcript);
+      // Corpus élargi pour la détection RDV : summary + transcript + messages du bot
+      const botMessagesText = (report.messages ?? [])
+        .filter((m) => m.role === "assistant")
+        .map((m) => m.content)
+        .join(" ");
+      const rdvCorpus = [report.summary, report.transcript, botMessagesText]
+        .filter(Boolean)
+        .join(" ");
+
+      const rdvInfo = extractRdvFromText(rdvCorpus);
+      const rdvMentioned = /\b(?:rendez-vous|rdv)\b/i.test(rdvCorpus);
       const rdvText = rdvInfo
         ? `${rdvInfo.date}${rdvInfo.heure ? ` à ${rdvInfo.heure}` : ""}`
         : undefined;
@@ -149,18 +158,22 @@ export async function handleVapiEvent(
       }
 
       // Envoi SMS de confirmation si un RDV est détecté
-      if (rdvInfo && clientPhone) {
+      if ((rdvInfo || rdvMentioned) && clientPhone) {
         const clientName = call.customer?.name ?? extractNameFromTranscript(report.transcript) ?? "Client";
         const companyName = process.env.ARTISAN_COMPANY_NAME ?? "votre artisan";
         try {
           await sendConfirmationSMS({
             clientName,
             clientPhone,
-            rdvDate: rdvInfo.date,
-            rdvHeure: rdvInfo.heure,
+            rdvDate: rdvInfo?.date,
+            rdvHeure: rdvInfo?.heure,
             companyName,
           });
-          console.log(`[Vapi] SMS de confirmation envoyé à ${clientPhone}`);
+          console.log(
+            rdvInfo
+              ? `[Vapi] SMS de confirmation (${rdvInfo.date}) envoyé à ${clientPhone}`
+              : `[Vapi] SMS générique RDV envoyé à ${clientPhone}`
+          );
         } catch (err) {
           console.error(`[Vapi] Échec envoi SMS pour l'appel ${call.id}:`, err);
         }
@@ -254,8 +267,13 @@ async function dispatchFunctionCall(
   }
 }
 
+/** Mots français pour les heures écrites en toutes lettres */
+const HEURES_LETTRES =
+  "(?:une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|dix-sept|dix-huit|dix-neuf|vingt)";
+
 /**
- * Extrait une date et une heure de RDV depuis un texte libre (résumé ou transcription).
+ * Extrait une date et une heure de RDV depuis un texte libre.
+ * Cherche dans summary, transcript ET messages du bot.
  * Retourne null si aucun RDV n'est détecté.
  */
 function extractRdvFromText(text: string): { date: string; heure?: string } | null {
@@ -266,13 +284,30 @@ function extractRdvFromText(text: string): { date: string; heure?: string } | nu
 
   const raw = rdvMatch[1].trim();
 
-  // Tente d'extraire une heure séparément depuis le même segment
-  const heureMatch = raw.match(/[àa]\s*(\d{1,2}[h:]\d{0,2})/i) ??
+  // Heure numérique : "à 10h30", "à 10:30"
+  const heureNumMatch =
+    raw.match(/[àa]\s*(\d{1,2}[h:]\d{0,2})/i) ??
     text.match(/[àa]\s*(\d{1,2}[h:]\d{0,2})/i);
-  const heure = heureMatch ? heureMatch[1].replace(":", "h") : undefined;
 
-  // Nettoie la date (retire l'heure si elle est collée)
-  const date = raw.replace(/[àa]\s*\d{1,2}[h:]\d{0,2}/i, "").trim();
+  // Heure en lettres : "à onze heures", "à dix heures et demie"
+  const heureLettrePat = new RegExp(
+    `[àa]\\s+(${HEURES_LETTRES}\\s+heures?(?:\\s+(?:et\\s+)?(?:quart|demie?|une|deux|trois|quatre|cinq|dix|vingt))?)`,
+    "i"
+  );
+  const heureLettreMatch = raw.match(heureLettrePat) ?? text.match(heureLettrePat);
+
+  let heure: string | undefined;
+  if (heureNumMatch) {
+    heure = heureNumMatch[1].replace(":", "h");
+  } else if (heureLettreMatch) {
+    heure = heureLettreMatch[1].trim();
+  }
+
+  // Nettoie la date (retire l'heure si collée)
+  const date = raw
+    .replace(/[àa]\s*\d{1,2}[h:]\d{0,2}/i, "")
+    .replace(heureLettrePat, "")
+    .trim();
 
   return { date, heure };
 }

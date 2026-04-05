@@ -9,7 +9,7 @@ function getBrevoClient(): BrevoClient {
 export interface ConfirmationSMSData {
   clientName: string;
   clientPhone: string;
-  rdvDate: string;
+  rdvDate?: string;   // optionnel : absent → SMS générique
   rdvHeure?: string;
   companyName: string;
 }
@@ -26,11 +26,19 @@ function normalizePhone(phone: string): string {
 }
 
 export async function sendConfirmationSMS(data: ConfirmationSMSData): Promise<void> {
-  const heureStr = data.rdvHeure ? ` à ${data.rdvHeure}` : "";
-  const content =
-    `Bonjour ${data.clientName},\n` +
-    `Votre RDV avec ${data.companyName} est confirmé le ${data.rdvDate}${heureStr}.\n` +
-    `Pour toute question, contactez-nous directement.`;
+  let content: string;
+  if (data.rdvDate) {
+    const heureStr = data.rdvHeure ? ` à ${data.rdvHeure}` : "";
+    content =
+      `Bonjour ${data.clientName},\n` +
+      `Votre RDV avec ${data.companyName} est confirmé le ${data.rdvDate}${heureStr}.\n` +
+      `Pour toute question, contactez-nous directement.`;
+  } else {
+    content =
+      `Bonjour ${data.clientName},\n` +
+      `Votre rendez-vous a bien été pris en compte avec ${data.companyName}.\n` +
+      `Pour toute question, contactez-nous directement.`;
+  }
 
   const client = getBrevoClient();
   await client.transactionalSms.sendAsyncTransactionalSms({
