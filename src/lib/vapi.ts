@@ -63,6 +63,15 @@ export async function handleVapiEvent(
       console.log(
         `[Vapi] Appel démarré — ID: ${call.id} | Client: ${clientPhone}`
       );
+
+      // Met à jour le prompt de l'assistant avec l'heure Paris actuelle (non-bloquant)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://voiceagent-pme.vercel.app";
+      fetch(`${appUrl}/api/update-prompt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assistantId: call.assistantId }),
+      }).catch((err) => console.error("[Vapi] update-prompt échoué:", err));
+
       return null;
     }
 
@@ -86,11 +95,11 @@ export async function handleVapiEvent(
       // Durée : priorité à message.durationSeconds (fourni par Vapi), sinon calcul depuis timestamps
       let durationSeconds: number | undefined;
       if (typeof report.durationSeconds === "number" && report.durationSeconds > 0) {
-        durationSeconds = Math.round(report.durationSeconds);
+        durationSeconds = Math.round(report.durationSeconds ?? 0);
       } else if (call.startedAt && call.endedAt) {
-        durationSeconds = Math.round(
-          (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000
-        );
+        const endTime = new Date(call.endedAt).getTime();
+        const startTime = new Date(call.startedAt).getTime();
+        durationSeconds = Math.round((endTime - startTime) / 1000);
       }
 
       // ── Debug ──────────────────────────────────────────
@@ -357,10 +366,12 @@ function extractCalendarEvent(
 
   for (const msg of toolResults) {
     // Log brut pour debug
-    console.log("[Debug] Tool message:", msg.name, msg.content?.slice(0, 200));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw: string = (msg as any).result ?? msg.content ?? "";
+    console.log("[Debug] Tool message:", msg.name, raw.slice(0, 200));
 
     try {
-      const parsed = JSON.parse(msg.content);
+      const parsed = JSON.parse(raw);
 
       // Format Google Calendar API : event avec id + start.dateTime
       const eventId: string | undefined =
@@ -401,6 +412,8 @@ const FAUX_PRENOMS = new Set([
   "beaucoup", "pour", "de", "votre", "bien", "donc", "alors",
   "d'avoir", "infiniment", "monsieur", "madame", "mademoiselle",
   "vous", "nous", "tout", "trop", "encore", "quand", "même",
+  "monstre", "hamal", "amhal", "m", "mme", "mr",
+  "précisions", "remercie", "plaisir", "confiance",
 ]);
 
 /**
