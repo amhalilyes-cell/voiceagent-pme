@@ -83,9 +83,11 @@ export async function handleVapiEvent(
       // Numéro du client : champ réel Vapi = customer.number
       const clientPhone = call.customer?.number ?? call.customer?.phoneNumber;
 
-      // Calcul de la durée en secondes
+      // Durée : priorité à message.durationSeconds (fourni par Vapi), sinon calcul depuis timestamps
       let durationSeconds: number | undefined;
-      if (call.startedAt && call.endedAt) {
+      if (typeof report.durationSeconds === "number" && report.durationSeconds > 0) {
+        durationSeconds = report.durationSeconds;
+      } else if (call.startedAt && call.endedAt) {
         durationSeconds = Math.round(
           (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000
         );
@@ -303,10 +305,12 @@ function extractRdvFromText(text: string): { date: string; heure?: string } | nu
     heure = heureLettreMatch[1].trim();
   }
 
-  // Nettoie la date (retire l'heure si collée)
+  // Nettoie la date : retire l'heure et les mots parasites
   const date = raw
     .replace(/[àa]\s*\d{1,2}[h:]\d{0,2}/i, "")
     .replace(heureLettrePat, "")
+    .replace(/\b(?:du\s+coup|donc|coup|euh|ben|voilà)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
 
   return { date, heure };
@@ -314,12 +318,18 @@ function extractRdvFromText(text: string): { date: string; heure?: string } | nu
 
 /**
  * Extrait le prénom/nom du client depuis une transcription.
+ * Cherche dans les répliques du client ET dans les "Merci [Prénom]" du bot.
  */
 function extractNameFromTranscript(transcript: string): string | undefined {
   const patterns = [
+    // Déclarations du client
     /je m['']appelle\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/i,
     /c['']est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)\s+(?:à|de|qui)/i,
     /mon nom est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/i,
+    // "Merci [Prénom]" ou "Merci [Prénom] !" dans les réponses du bot
+    /\bmerci\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)(?:\s*[!,.])?/i,
+    // "Au revoir [Prénom]", "Bonne journée [Prénom]"
+    /(?:au revoir|bonne journée|à bientôt)\s*,?\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i,
   ];
   for (const re of patterns) {
     const match = transcript.match(re);

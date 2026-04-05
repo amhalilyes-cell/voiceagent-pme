@@ -116,6 +116,7 @@ export interface VapiEndOfCallReportEvent extends VapiWebhookBase {
     summary: string;
     messages: VapiMessage[];
     recordingUrl?: string;
+    durationSeconds?: number; // fourni directement par Vapi
   };
 }
 
