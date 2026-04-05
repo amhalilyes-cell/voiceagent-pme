@@ -86,7 +86,7 @@ export async function handleVapiEvent(
       // Durée : priorité à message.durationSeconds (fourni par Vapi), sinon calcul depuis timestamps
       let durationSeconds: number | undefined;
       if (typeof report.durationSeconds === "number" && report.durationSeconds > 0) {
-        durationSeconds = report.durationSeconds;
+        durationSeconds = Math.round(report.durationSeconds);
       } else if (call.startedAt && call.endedAt) {
         durationSeconds = Math.round(
           (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000
@@ -347,7 +347,13 @@ function extractRdvFromText(text: string): { date: string; heure?: string } | nu
 function extractCalendarEvent(
   messages: { role: string; content: string; name?: string }[]
 ): { eventId?: string; startIso?: string; date: string; heure?: string } | null {
-  const toolResults = messages.filter((m) => m.role === "tool");
+  const toolResults = messages.filter(
+    (m) =>
+      m.role === "tool" ||
+      m.role === "tool_call_result" ||
+      (m.role === "tool" && m.name === "google_calendar_tool") ||
+      m.name === "google_calendar_tool"
+  );
 
   for (const msg of toolResults) {
     // Log brut pour debug
@@ -390,24 +396,42 @@ function extractCalendarEvent(
   return null;
 }
 
+/** Mots à exclure des captures de prénom (faux positifs fréquents) */
+const FAUX_PRENOMS = new Set([
+  "beaucoup", "pour", "de", "votre", "bien", "donc", "alors",
+  "d'avoir", "infiniment", "monsieur", "madame", "mademoiselle",
+  "vous", "nous", "tout", "trop", "encore", "quand", "même",
+]);
+
 /**
  * Extrait le prénom/nom du client depuis une transcription.
  * Cherche dans les répliques du client ET dans les "Merci [Prénom]" du bot.
  */
 function extractNameFromTranscript(transcript: string): string | undefined {
-  const patterns = [
-    // Déclarations du client
+  // Patterns ordonnés par fiabilité décroissante
+  const patterns: RegExp[] = [
+    // Déclarations explicites du client (lignes "User:" ou texte brut)
+    /(?:^|User\s*:\s*).*?je m['']appelle\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/im,
+    /(?:^|User\s*:\s*).*?mon nom c['']est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/im,
+    /(?:^|User\s*:\s*).*?mon nom est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/im,
     /je m['']appelle\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/i,
     /c['']est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)\s+(?:à|de|qui)/i,
     /mon nom est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/i,
-    // "Merci [Prénom]" ou "Merci [Prénom] !" dans les réponses du bot
+    // "Merci [Prénom]" dans les réponses du bot (avec filtre faux positifs)
     /\bmerci\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)(?:\s*[!,.])?/i,
     // "Au revoir [Prénom]", "Bonne journée [Prénom]"
     /(?:au revoir|bonne journée|à bientôt)\s*,?\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i,
   ];
+
   for (const re of patterns) {
     const match = transcript.match(re);
-    if (match) return match[1];
+    if (match) {
+      const candidate = match[1].trim().toLowerCase();
+      if (!FAUX_PRENOMS.has(candidate)) {
+        // Capitalise la première lettre
+        return match[1].trim().replace(/^\w/, (c) => c.toUpperCase());
+      }
+    }
   }
   return undefined;
 }
