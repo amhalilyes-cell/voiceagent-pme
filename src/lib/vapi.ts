@@ -194,6 +194,7 @@ export async function handleVapiEvent(
           rdv: rdvText,
           callDate: calendarEvent?.startIso ?? callDate,
         });
+        console.log("[Debug] callDate envoyé à email:", calendarEvent?.startIso ?? callDate);
         console.log(`[Vapi] Email de rapport envoyé pour l'appel ${call.id} (${callDateParis})`);
       } catch (err) {
         console.error(`[Vapi] Échec envoi email pour l'appel ${call.id}:`, err);
@@ -454,6 +455,7 @@ function extractNameFromCalendarArgs(
 
       // "Intervention urgente - Amal" ou "RDV plomberie – Amal"
       const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ]+)\s*$/i);
+      console.log("[Debug] dashMatch result:", dashMatch);
       if (dashMatch) return dashMatch[1].trim();
 
       // "Client : Amal"
@@ -471,6 +473,11 @@ const FAUX_PRENOMS = new Set([
   "vous", "nous", "tout", "trop", "encore", "quand", "même",
   "monstre", "hamal", "amhal", "m", "mme", "mr",
   "précisions", "remercie", "plaisir", "confiance",
+  "possible", "urgente", "urgence", "intervention",
+  "demain", "aujourd", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+  "janvier", "février", "mars", "avril", "mai", "juin",
+  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+  "voici", "parfait", "entendu",
 ]);
 
 /**
