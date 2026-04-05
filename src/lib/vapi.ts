@@ -2,6 +2,23 @@ import crypto from "crypto";
 import type { VapiWebhookEvent, VapiFunctionCallResponse } from "@/types/vapi";
 import { sendCallReport } from "@/lib/email";
 import { sendConfirmationSMS } from "@/lib/sms";
+import { saveCall, findArtisanByVapiAssistantId } from "@/lib/storage";
+
+/** Formate une date ISO en heure Europe/Paris lisible */
+function toParisTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("fr-FR", {
+      timeZone: "Europe/Paris",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
 
 /**
  * Vérifie la signature HMAC-SHA256 d'un webhook Vapi.
@@ -42,8 +59,9 @@ export async function handleVapiEvent(
   switch (type) {
     case "call-started": {
       const { call } = event.message;
+      const clientPhone = call.customer?.number ?? call.customer?.phoneNumber ?? "inconnu";
       console.log(
-        `[Vapi] Appel démarré — ID: ${call.id} | Client: ${call.customer?.phoneNumber ?? "inconnu"}`
+        `[Vapi] Appel démarré — ID: ${call.id} | Client: ${clientPhone}`
       );
       return null;
     }
@@ -62,6 +80,9 @@ export async function handleVapiEvent(
       console.log(`[Vapi] Rapport de fin d'appel — ID: ${call.id}`);
       console.log(`[Vapi] Résumé: ${report.summary}`);
 
+      // Numéro du client : champ réel Vapi = customer.number
+      const clientPhone = call.customer?.number ?? call.customer?.phoneNumber;
+
       // Calcul de la durée en secondes
       let durationSeconds: number | undefined;
       if (call.startedAt && call.endedAt) {
@@ -70,26 +91,64 @@ export async function handleVapiEvent(
         );
       }
 
+      // Date de l'appel en Europe/Paris
+      const callDate = call.startedAt ?? call.endedAt;
+      const callDateParis = callDate ? toParisTime(callDate) : undefined;
+
+      // Détection RDV pour le SMS et la sauvegarde
+      const rdvInfo = extractRdvFromText(report.summary + " " + report.transcript);
+      const rdvText = rdvInfo
+        ? `${rdvInfo.date}${rdvInfo.heure ? ` à ${rdvInfo.heure}` : ""}`
+        : undefined;
+
+      // Recherche de l'artisan pour lier l'appel
+      let artisanId: string | undefined;
+      try {
+        const artisan = await findArtisanByVapiAssistantId(call.assistantId);
+        artisanId = artisan?.id;
+      } catch (err) {
+        console.warn(`[Vapi] Artisan introuvable pour assistantId ${call.assistantId}:`, err);
+      }
+
+      // Sauvegarde dans Supabase
+      try {
+        await saveCall({
+          artisanId,
+          vapiCallId: call.id,
+          clientName: call.customer?.name,
+          clientPhone,
+          durationSeconds,
+          summary: report.summary,
+          transcript: report.transcript,
+          recordingUrl: report.recordingUrl,
+          rdv: rdvText,
+          startedAt: call.startedAt,
+          endedAt: call.endedAt,
+        });
+        console.log(`[Vapi] Appel ${call.id} sauvegardé en base`);
+      } catch (err) {
+        console.error(`[Vapi] Échec sauvegarde appel ${call.id}:`, err);
+      }
+
       // Envoi email de rapport
       try {
         await sendCallReport({
           callId: call.id,
           clientName: call.customer?.name,
-          clientPhone: call.customer?.phoneNumber,
+          clientPhone,
           summary: report.summary,
           transcript: report.transcript,
           durationSeconds,
           recordingUrl: report.recordingUrl,
+          rdv: rdvText,
+          callDate: callDate,
         });
-        console.log(`[Vapi] Email de rapport envoyé pour l'appel ${call.id}`);
+        console.log(`[Vapi] Email de rapport envoyé pour l'appel ${call.id} (${callDateParis})`);
       } catch (err) {
         console.error(`[Vapi] Échec envoi email pour l'appel ${call.id}:`, err);
       }
 
-      // Envoi SMS de confirmation si un RDV est détecté dans le résumé
-      // (fallback : couvre les cas où prendrRendezVous n'est pas passé par function-call)
-      const rdvInfo = extractRdvFromText(report.summary + " " + report.transcript);
-      const clientPhone = call.customer?.phoneNumber;
+      // Envoi SMS de confirmation si un RDV est détecté
       if (rdvInfo && clientPhone) {
         const clientName = call.customer?.name ?? extractNameFromTranscript(report.transcript) ?? "Client";
         const companyName = process.env.ARTISAN_COMPANY_NAME ?? "votre artisan";
@@ -167,8 +226,9 @@ async function dispatchFunctionCall(
         );
       }
 
+      const heureStr = heure ? ` à ${heure}` : "";
       return {
-        result: `Parfait ! J'ai bien noté votre rendez-vous le ${date} à ${heure}. Vous recevrez une confirmation par SMS.`,
+        result: `Parfait ! J'ai bien noté votre rendez-vous le ${date}${heureStr}. Vous recevrez une confirmation par SMS.`,
       };
     }
 

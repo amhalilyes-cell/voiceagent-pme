@@ -17,7 +17,8 @@ export type VapiEndedReason =
   | "silence-timed-out";
 
 export interface VapiCaller {
-  phoneNumber: string;
+  number?: string;       // champ réel envoyé par Vapi
+  phoneNumber?: string;  // alias de compatibilité
   name?: string;
 }
 

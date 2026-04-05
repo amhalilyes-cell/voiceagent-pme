@@ -19,6 +19,7 @@ export interface CallReportData {
   durationSeconds?: number;
   recordingUrl?: string;
   rdv?: string | null;
+  callDate?: string; // ISO string, affiché en Europe/Paris
 }
 
 /** Extrait le nom du client depuis la transcription (cherche des patterns courants) */
@@ -59,7 +60,24 @@ function formatDuration(seconds?: number): string {
   if (!seconds || seconds <= 0) return "–";
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
-  return m > 0 ? `${m} min ${s} sec` : `${s} sec`;
+  if (m === 0) return `${s} sec`;
+  return s > 0 ? `${m} min ${s} sec` : `${m} min`;
+}
+
+function formatParisDate(iso?: string): string {
+  if (!iso) return "–";
+  try {
+    return new Intl.DateTimeFormat("fr-FR", {
+      timeZone: "Europe/Paris",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
 }
 
 function buildHtml(data: CallReportData): string {
@@ -67,6 +85,7 @@ function buildHtml(data: CallReportData): string {
   const clientPhone = data.clientPhone ?? extractPhone(data.transcript) ?? "–";
   const rdv = data.rdv ?? extractRdv(data.summary + " " + data.transcript);
   const duration = formatDuration(data.durationSeconds);
+  const callDateFormatted = formatParisDate(data.callDate);
 
   const rdvRow = rdv
     ? `<tr>
@@ -128,6 +147,10 @@ function buildHtml(data: CallReportData): string {
                 </tr>
               </thead>
               <tbody>
+                <tr>
+                  <td style="padding:10px 16px;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Date</td>
+                  <td style="padding:10px 16px;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #f3f4f6;">${callDateFormatted}</td>
+                </tr>
                 <tr>
                   <td style="padding:10px 16px;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Nom</td>
                   <td style="padding:10px 16px;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #f3f4f6;">${clientName}</td>

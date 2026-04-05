@@ -197,6 +197,62 @@ export async function findArtisanByResetToken(token: string): Promise<Artisan | 
   }
 }
 
+export async function findArtisanByVapiAssistantId(assistantId: string): Promise<Artisan | undefined> {
+  try {
+    const { data, error } = await getSupabase()
+      .from("artisans")
+      .select("*")
+      .eq("vapi_assistant_id", assistantId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data ? toArtisan(data as ArtisanRow) : undefined;
+  } catch (err) {
+    throw formatError("findArtisanByVapiAssistantId", err);
+  }
+}
+
+export interface CallData {
+  artisanId?: string;
+  vapiCallId: string;
+  clientName?: string;
+  clientPhone?: string;
+  durationSeconds?: number;
+  summary?: string;
+  transcript?: string;
+  recordingUrl?: string;
+  rdv?: string;
+  startedAt?: string;
+  endedAt?: string;
+}
+
+export async function saveCall(call: CallData): Promise<void> {
+  try {
+    const { error } = await getSupabase()
+      .from("calls")
+      .upsert(
+        {
+          artisan_id: call.artisanId ?? null,
+          vapi_call_id: call.vapiCallId,
+          client_name: call.clientName ?? null,
+          client_phone: call.clientPhone ?? null,
+          duration_seconds: call.durationSeconds ?? null,
+          summary: call.summary ?? null,
+          transcript: call.transcript ?? null,
+          recording_url: call.recordingUrl ?? null,
+          rdv: call.rdv ?? null,
+          started_at: call.startedAt ?? null,
+          ended_at: call.endedAt ?? null,
+        },
+        { onConflict: "vapi_call_id" }
+      );
+
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    throw formatError("saveCall", err);
+  }
+}
+
 export async function updateArtisan(
   id: string,
   patch: Partial<Artisan>
