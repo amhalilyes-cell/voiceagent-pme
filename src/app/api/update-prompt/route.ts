@@ -4,9 +4,10 @@ export const dynamic = "force-dynamic";
 
 const VAPI_BASE_URL = "https://api.vapi.ai";
 
-/** Construit la ligne IMPORTANT avec la date/heure Paris actuelles */
+/** Construit la ligne IMPORTANT avec la date/heure Paris actuelles (+5 min de marge) */
 function buildImportantLine(): string {
-  const now = new Date();
+  // +5 minutes pour éviter de proposer des créneaux qui débutent maintenant
+  const now = new Date(Date.now() + 5 * 60 * 1000);
   const dateParis = new Intl.DateTimeFormat("fr-FR", {
     timeZone: "Europe/Paris",
     weekday: "long",

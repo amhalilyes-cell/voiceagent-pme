@@ -102,9 +102,17 @@ export async function handleVapiEvent(
         durationSeconds = Math.round((endTime - startTime) / 1000);
       }
 
+      // Nom client : customer.name > args GCal > transcript
+      const clientNameFromGcal = extractNameFromCalendarArgs(report.messages ?? []);
+      const clientName =
+        call.customer?.name ??
+        clientNameFromGcal ??
+        extractNameFromTranscript(report.transcript);
+
       // ── Debug ──────────────────────────────────────────
       console.log("[Debug] clientPhone:", clientPhone);
       console.log("[Debug] clientName:", call.customer?.name);
+      console.log("[Debug] clientNameFromGcal:", clientNameFromGcal);
       console.log("[Debug] durationSeconds:", report.durationSeconds, durationSeconds);
       console.log("[Debug] extractedName:", extractNameFromTranscript(report.transcript));
       // ───────────────────────────────────────────────────
@@ -158,7 +166,7 @@ export async function handleVapiEvent(
         await saveCall({
           artisanId,
           vapiCallId: call.id,
-          clientName: call.customer?.name,
+          clientName,
           clientPhone,
           durationSeconds,
           summary: report.summary,
@@ -177,14 +185,14 @@ export async function handleVapiEvent(
       try {
         await sendCallReport({
           callId: call.id,
-          clientName: call.customer?.name,
+          clientName,
           clientPhone,
           summary: report.summary,
           transcript: report.transcript,
           durationSeconds,
           recordingUrl: report.recordingUrl,
           rdv: rdvText,
-          callDate: callDate,
+          callDate: calendarEvent?.startIso ?? callDate,
         });
         console.log(`[Vapi] Email de rapport envoyé pour l'appel ${call.id} (${callDateParis})`);
       } catch (err) {
@@ -193,11 +201,11 @@ export async function handleVapiEvent(
 
       // Envoi SMS de confirmation si un RDV est détecté
       if ((rdvInfo || rdvMentioned) && clientPhone) {
-        const clientName = call.customer?.name ?? extractNameFromTranscript(report.transcript) ?? "Client";
+        const smsClientName = clientName ?? "Client";
         const companyName = artisanNomEntreprise ?? process.env.ARTISAN_COMPANY_NAME ?? "votre artisan";
         try {
           await sendConfirmationSMS({
-            clientName,
+            clientName: smsClientName,
             clientPhone,
             rdvDate: rdvInfo?.date,
             rdvHeure: rdvInfo?.heure,
@@ -405,6 +413,55 @@ function extractCalendarEvent(
   }
 
   return null;
+}
+
+/**
+ * Extrait le prénom du client depuis les arguments d'un tool_call google_calendar_tool.
+ * Cherche dans le champ "summary" des args : "Intervention urgente - [Prénom]" ou "Client : [Prénom]".
+ */
+function extractNameFromCalendarArgs(
+  messages: { role: string; content: string; name?: string }[]
+): string | undefined {
+  const toolCalls = messages.filter(
+    (m) =>
+      m.role === "tool_calls" ||
+      m.role === "assistant" // les tool_calls sont parfois dans le rôle assistant
+  );
+
+  for (const msg of toolCalls) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = (msg as any).toolCalls ?? (msg as any).tool_calls ?? [];
+    const calls = Array.isArray(raw) ? raw : [];
+
+    for (const tc of calls) {
+      const fnName: string = tc?.function?.name ?? tc?.name ?? "";
+      if (!fnName.includes("google_calendar")) continue;
+
+      const argsRaw: string =
+        typeof tc?.function?.arguments === "string"
+          ? tc.function.arguments
+          : JSON.stringify(tc?.function?.arguments ?? tc?.arguments ?? {});
+
+      let args: Record<string, string> = {};
+      try {
+        args = JSON.parse(argsRaw);
+      } catch {
+        continue;
+      }
+
+      const summary: string = args.summary ?? args.title ?? "";
+      console.log("[Debug] GCal tool_call summary:", summary);
+
+      // "Intervention urgente - Amal" ou "RDV plomberie – Amal"
+      const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ]+)\s*$/i);
+      if (dashMatch) return dashMatch[1].trim();
+
+      // "Client : Amal"
+      const clientMatch = summary.match(/Client\s*:\s*([A-ZÀ-Ÿa-zà-ÿ]+)/i);
+      if (clientMatch) return clientMatch[1].trim();
+    }
+  }
+  return undefined;
 }
 
 /** Mots à exclure des captures de prénom (faux positifs fréquents) */
