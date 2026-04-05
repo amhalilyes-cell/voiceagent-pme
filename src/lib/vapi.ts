@@ -1,3 +1,4 @@
+// Version 3 - 05/04/2026
 import crypto from "crypto";
 import type { VapiWebhookEvent, VapiFunctionCallResponse } from "@/types/vapi";
 import { sendCallReport } from "@/lib/email";
