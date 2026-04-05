@@ -12,7 +12,7 @@ export async function createVapiAssistant(artisan: Artisan): Promise<string> {
   const apiKey = process.env.VAPI_API_KEY;
   if (!apiKey) throw new Error("[Onboarding] VAPI_API_KEY manquante");
 
-  const systemPrompt = `IMPORTANT : Aujourd'hui nous sommes le {{date}}. Il est {{time}} heure de Paris. Tu DOIS utiliser la date d'aujourd'hui pour tous les rendez-vous. Ne jamais utiliser une date passée.
+  const systemPrompt = `IMPORTANT : Aujourd'hui nous sommes le {{date}}. Il est {{time}} UTC. ATTENTION : L'heure indiquée est en UTC. Ajoute 2 heures pour obtenir l'heure de Paris (en été). Ne propose JAMAIS un créneau avant l'heure actuelle de Paris. Tu DOIS utiliser la date d'aujourd'hui pour tous les rendez-vous. Ne jamais utiliser une date passée.
 
 Tu es l'assistant vocal de ${artisan.nomEntreprise}, une entreprise de ${artisan.metier} basée en France.
 Tu réponds aux appels des clients de manière professionnelle, chaleureuse et efficace.

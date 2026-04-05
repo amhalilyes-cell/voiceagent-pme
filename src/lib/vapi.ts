@@ -93,6 +93,13 @@ export async function handleVapiEvent(
         );
       }
 
+      // ── Debug ──────────────────────────────────────────
+      console.log("[Debug] clientPhone:", clientPhone);
+      console.log("[Debug] clientName:", call.customer?.name);
+      console.log("[Debug] durationSeconds:", report.durationSeconds, durationSeconds);
+      console.log("[Debug] extractedName:", extractNameFromTranscript(report.transcript));
+      // ───────────────────────────────────────────────────
+
       // Date de l'appel en Europe/Paris
       const callDate = call.startedAt ?? call.endedAt;
       const callDateParis = callDate ? toParisTime(callDate) : undefined;
@@ -106,17 +113,33 @@ export async function handleVapiEvent(
         .filter(Boolean)
         .join(" ");
 
-      const rdvInfo = extractRdvFromText(rdvCorpus);
+      // Recherche d'un événement Google Calendar confirmé dans les tool results
+      const calendarEvent = extractCalendarEvent(report.messages ?? []);
+      if (calendarEvent) {
+        console.log(`[Vapi] Événement GCal détecté — eventId: ${calendarEvent.eventId}, start: ${calendarEvent.startIso}`);
+      }
+
+      // RDV : priorité à l'événement GCal, sinon extraction textuelle
+      let rdvInfo: { date: string; heure?: string } | null = null;
+      if (calendarEvent) {
+        rdvInfo = { date: calendarEvent.date, heure: calendarEvent.heure };
+      } else {
+        rdvInfo = extractRdvFromText(rdvCorpus);
+      }
       const rdvMentioned = /\b(?:rendez-vous|rdv)\b/i.test(rdvCorpus);
       const rdvText = rdvInfo
         ? `${rdvInfo.date}${rdvInfo.heure ? ` à ${rdvInfo.heure}` : ""}`
         : undefined;
 
-      // Recherche de l'artisan pour lier l'appel
+      // Recherche de l'artisan pour lier l'appel et enrichir le SMS
       let artisanId: string | undefined;
+      let artisanTelephone: string | undefined;
+      let artisanNomEntreprise: string | undefined;
       try {
         const artisan = await findArtisanByVapiAssistantId(call.assistantId);
         artisanId = artisan?.id;
+        artisanTelephone = artisan?.telephone;
+        artisanNomEntreprise = artisan?.nomEntreprise;
       } catch (err) {
         console.warn(`[Vapi] Artisan introuvable pour assistantId ${call.assistantId}:`, err);
       }
@@ -162,7 +185,7 @@ export async function handleVapiEvent(
       // Envoi SMS de confirmation si un RDV est détecté
       if ((rdvInfo || rdvMentioned) && clientPhone) {
         const clientName = call.customer?.name ?? extractNameFromTranscript(report.transcript) ?? "Client";
-        const companyName = process.env.ARTISAN_COMPANY_NAME ?? "votre artisan";
+        const companyName = artisanNomEntreprise ?? process.env.ARTISAN_COMPANY_NAME ?? "votre artisan";
         try {
           await sendConfirmationSMS({
             clientName,
@@ -170,6 +193,7 @@ export async function handleVapiEvent(
             rdvDate: rdvInfo?.date,
             rdvHeure: rdvInfo?.heure,
             companyName,
+            artisanPhone: artisanTelephone,
           });
           console.log(
             rdvInfo
@@ -314,6 +338,56 @@ function extractRdvFromText(text: string): { date: string; heure?: string } | nu
     .trim();
 
   return { date, heure };
+}
+
+/**
+ * Cherche un résultat d'outil Google Calendar dans les messages Vapi.
+ * Retourne la date/heure confirmée de l'événement si trouvée.
+ */
+function extractCalendarEvent(
+  messages: { role: string; content: string; name?: string }[]
+): { eventId?: string; startIso?: string; date: string; heure?: string } | null {
+  const toolResults = messages.filter((m) => m.role === "tool");
+
+  for (const msg of toolResults) {
+    // Log brut pour debug
+    console.log("[Debug] Tool message:", msg.name, msg.content?.slice(0, 200));
+
+    try {
+      const parsed = JSON.parse(msg.content);
+
+      // Format Google Calendar API : event avec id + start.dateTime
+      const eventId: string | undefined =
+        parsed?.id ?? parsed?.eventId ?? parsed?.event?.id ?? undefined;
+      const startRaw: string | undefined =
+        parsed?.start?.dateTime ??
+        parsed?.start?.date ??
+        parsed?.event?.start?.dateTime ??
+        parsed?.event?.start?.date ??
+        undefined;
+
+      if (startRaw) {
+        const startDate = new Date(startRaw);
+        const date = new Intl.DateTimeFormat("fr-FR", {
+          timeZone: "Europe/Paris",
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        }).format(startDate);
+        const heure = new Intl.DateTimeFormat("fr-FR", {
+          timeZone: "Europe/Paris",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(startDate);
+
+        return { eventId, startIso: startRaw, date, heure };
+      }
+    } catch {
+      // Contenu non-JSON, on ignore
+    }
+  }
+
+  return null;
 }
 
 /**

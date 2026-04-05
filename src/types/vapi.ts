@@ -26,6 +26,7 @@ export interface VapiMessage {
   role: "user" | "assistant" | "system" | "tool";
   content: string;
   time?: number;
+  name?: string; // nom de la fonction pour role="tool"
 }
 
 export interface VapiCall {
