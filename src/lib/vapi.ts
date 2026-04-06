@@ -468,9 +468,20 @@ function extractNameFromCalendarArgs(
       console.log("[Debug] GCal tool_call summary:", summary);
 
       // "Intervention urgente - Amal" ou "RDV plomberie – Amal"
-      const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ]+)\s*$/i);
+      const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ0-9\s]+)\s*$/i);
       console.log("[Debug] dashMatch result:", dashMatch);
-      if (dashMatch) return dashMatch[1].trim();
+      if (dashMatch) {
+        const candidate = dashMatch[1].trim();
+        const MOTS_VOIE = new Set([
+          "place", "places", "rue", "avenue", "boulevard", "impasse",
+          "chemin", "route", "résidence", "villa", "allée", "voie", "cité",
+        ]);
+        // Rejette si contient des chiffres ou si le premier mot est un type de voie
+        const firstWord = candidate.split(/\s+/)[0].toLowerCase();
+        if (!/\d/.test(candidate) && !MOTS_VOIE.has(firstWord)) {
+          return candidate;
+        }
+      }
 
       // "Client : Amal"
       const clientMatch = summary.match(/Client\s*:\s*([A-ZÀ-Ÿa-zà-ÿ]+)/i);
@@ -599,6 +610,7 @@ const FAUX_PRENOMS = new Set([
   "janvier", "février", "mars", "avril", "mai", "juin",
   "juillet", "août", "septembre", "octobre", "novembre", "décembre",
   "voici", "parfait", "entendu",
+  "place", "places", "rue", "avenue", "boulevard", "impasse", "chemin", "route", "résidence", "villa",
 ]);
 
 /**
