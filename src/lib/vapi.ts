@@ -168,8 +168,10 @@ export async function handleVapiEvent(
         generateSummary(report.transcript, rdvInfo, clientName);
       console.log("[Debug] summary utilisé:", summary);
 
-      // Adresse extraite de la transcription
-      const clientAddress = extractAddressFromTranscript(report.transcript);
+      // Adresse : transcription en priorité, puis summary GCal en fallback
+      const clientAddress =
+        extractAddressFromTranscript(report.transcript) ??
+        extractAddressFromCalendarSummary(report.messages ?? []);
 
       // Sauvegarde dans Supabase
       try {
@@ -482,29 +484,62 @@ function extractNameFromCalendarArgs(
  * Extrait une adresse depuis la transcription.
  * Cherche un numéro + type de voie, ou un code postal français.
  */
-function extractAddressFromTranscript(transcript: string): string | undefined {
-  // 1. Numéro + type de voie élargi (cité, résidence, hameau, lieu-dit…)
-  const voieNumMatch = transcript.match(
-    /(\d{1,4}\s+(?:rue|avenue|boulevard|place|impasse|allée|chemin|route|voie|cité|résidence|hameau|lieu-dit)[^,\n]{0,60})/i
+/** Cherche une adresse française dans un texte libre. */
+function extractAddressFromText(text: string): string | undefined {
+  // 1. Numéro + type de voie
+  const voieNumMatch = text.match(
+    /(\d{1,4}\s+(?:rue|avenue|boulevard|place|impasse|allée|chemin|route|voie|cité|résidence|hameau)[^,\n]{0,60})/i
   );
   if (voieNumMatch) return voieNumMatch[1].trim();
 
   // 2. Type de voie sans numéro : "rue des Lilas", "place Saint-Michel"
-  const voieSansNumMatch = transcript.match(
-    /(?:place|rue|avenue|boulevard|impasse|allée|chemin|résidence)\s+(?:des?|du|la|les|saint|sainte)?\s*[A-ZÀ-Ÿa-zà-ÿ][^,\n]{0,50}/i
+  const voieSansNumMatch = text.match(
+    /\b((?:place|rue|avenue|boulevard|impasse|allée|chemin|résidence)\s+(?:des?|du|la|les|saint|sainte)?\s*[A-ZÀ-Ÿa-zà-ÿ][a-zà-ÿ\s\-]{2,40})/i
   );
-  if (voieSansNumMatch) return voieSansNumMatch[0].trim();
+  if (voieSansNumMatch) return voieSansNumMatch[1].trim();
 
-  // 3. Code postal + ville : "75001 Paris", "69003 Lyon"
-  const cpVilleMatch = transcript.match(
-    /\b(\d{5})\s+([A-ZÀ-Ÿa-zà-ÿ][a-zà-ÿ\-]{2,})\b/
-  );
+  // 3. Code postal + ville : "62300 Lens"
+  const cpVilleMatch = text.match(/\b(\d{5})\s+([A-ZÀ-Ÿ][a-zà-ÿ\-]{2,})\b/);
   if (cpVilleMatch) return `${cpVilleMatch[1]} ${cpVilleMatch[2]}`;
 
-  // 4. Code postal seul en dernier recours
-  const cpMatch = transcript.match(/\b(\d{5})\b/);
-  if (cpMatch) return cpMatch[1];
+  return undefined;
+}
 
+function extractAddressFromTranscript(transcript: string): string | undefined {
+  return extractAddressFromText(transcript);
+}
+
+/**
+ * Extrait une adresse depuis le summary d'un tool_call google_calendar_tool.
+ * Ex : "Intervention urgente - Amhal, 14 place des Pervenches, 06 66 07 36 85"
+ */
+function extractAddressFromCalendarSummary(
+  messages: { role: string; content: string; name?: string }[]
+): string | undefined {
+  const toolCalls = messages.filter(
+    (m) => m.role === "tool_calls" || m.role === "assistant"
+  );
+  for (const msg of toolCalls) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = (msg as any).toolCalls ?? (msg as any).tool_calls ?? [];
+    const calls = Array.isArray(raw) ? raw : [];
+    for (const tc of calls) {
+      const fnName: string = tc?.function?.name ?? tc?.name ?? "";
+      if (!fnName.includes("google_calendar")) continue;
+      const argsRaw: string =
+        typeof tc?.function?.arguments === "string"
+          ? tc.function.arguments
+          : JSON.stringify(tc?.function?.arguments ?? tc?.arguments ?? {});
+      let args: Record<string, string> = {};
+      try { args = JSON.parse(argsRaw); } catch { continue; }
+      const summary: string = args.summary ?? args.title ?? "";
+      const found = extractAddressFromText(summary);
+      if (found) {
+        console.log("[Debug] Adresse depuis GCal summary:", found);
+        return found;
+      }
+    }
+  }
   return undefined;
 }
 
