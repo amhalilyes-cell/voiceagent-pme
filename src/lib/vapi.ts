@@ -162,6 +162,12 @@ export async function handleVapiEvent(
         console.warn(`[Vapi] Artisan introuvable pour assistantId ${call.assistantId}:`, err);
       }
 
+      // Résumé : utilise report.summary si disponible, sinon génère depuis la transcription
+      const summary =
+        report.summary?.trim() ||
+        generateSummary(report.transcript, rdvInfo, clientName);
+      console.log("[Debug] summary utilisé:", summary);
+
       // Sauvegarde dans Supabase
       try {
         await saveCall({
@@ -170,7 +176,7 @@ export async function handleVapiEvent(
           clientName,
           clientPhone,
           durationSeconds,
-          summary: report.summary,
+          summary,
           transcript: report.transcript,
           recordingUrl: report.recordingUrl,
           rdv: rdvText,
@@ -188,7 +194,7 @@ export async function handleVapiEvent(
           callId: call.id,
           clientName,
           clientPhone,
-          summary: report.summary,
+          summary,
           transcript: report.transcript,
           durationSeconds,
           recordingUrl: report.recordingUrl,
@@ -465,6 +471,46 @@ function extractNameFromCalendarArgs(
     }
   }
   return undefined;
+}
+
+/**
+ * Génère un résumé court de l'appel quand report.summary est vide.
+ * Exemple : "Client : Amhal. Demande : Intervention urgente pour fuite d'eau. RDV confirmé le lundi 6 avril à 9h."
+ */
+function generateSummary(
+  transcript: string,
+  rdvInfo: { date: string; heure?: string } | null,
+  clientName: string | undefined
+): string {
+  const parts: string[] = [];
+
+  // Ligne client
+  if (clientName) parts.push(`Client : ${clientName}.`);
+
+  // Nature de la demande : cherche la première phrase significative du client
+  const demandePatterns = [
+    /User\s*:\s*([^.\n]{10,120})/i,
+    /(?:j'ai|j'aurais|je voudrais|il y a|c'est pour|c'est urgent|fuite|panne|problème|besoin)[^.\n]{0,100}/i,
+  ];
+  let demande: string | undefined;
+  for (const re of demandePatterns) {
+    const m = transcript.match(re);
+    if (m) {
+      demande = (m[1] ?? m[0]).trim().replace(/^User\s*:\s*/i, "");
+      // Tronque à 100 chars
+      if (demande.length > 100) demande = demande.slice(0, 97) + "...";
+      break;
+    }
+  }
+  if (demande) parts.push(`Demande : ${demande}.`);
+
+  // RDV
+  if (rdvInfo) {
+    const heureStr = rdvInfo.heure ? ` à ${rdvInfo.heure}` : "";
+    parts.push(`RDV confirmé le ${rdvInfo.date}${heureStr}.`);
+  }
+
+  return parts.length > 0 ? parts.join(" ") : "Appel traité par l'assistant vocal.";
 }
 
 /** Mots à exclure des captures de prénom (faux positifs fréquents) */
