@@ -217,6 +217,7 @@ export interface CallData {
   vapiCallId: string;
   clientName?: string;
   clientPhone?: string;
+  clientAddress?: string;
   durationSeconds?: number;
   summary?: string;
   transcript?: string;
@@ -236,6 +237,7 @@ export async function saveCall(call: CallData): Promise<void> {
           vapi_call_id: call.vapiCallId,
           client_name: call.clientName ?? null,
           client_phone: call.clientPhone ?? null,
+          client_address: call.clientAddress ?? null,
           duration_seconds: call.durationSeconds ?? null,
           summary: call.summary ?? null,
           transcript: call.transcript ?? null,

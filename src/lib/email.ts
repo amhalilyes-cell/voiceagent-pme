@@ -14,6 +14,7 @@ export interface CallReportData {
   callId: string;
   clientName?: string;
   clientPhone?: string;
+  clientAddress?: string;
   summary: string;
   transcript: string;
   durationSeconds?: number;
@@ -86,6 +87,12 @@ function buildHtml(data: CallReportData): string {
   const rdv = data.rdv ?? extractRdv(data.summary + " " + data.transcript);
   const duration = formatDuration(data.durationSeconds);
   const callDateFormatted = formatParisDate(data.callDate);
+  const addressRow = data.clientAddress
+    ? `<tr>
+        <td style="padding:10px 16px;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Adresse</td>
+        <td style="padding:10px 16px;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #f3f4f6;">${data.clientAddress}</td>
+       </tr>`
+    : "";
 
   const rdvRow = rdv
     ? `<tr>
@@ -163,6 +170,7 @@ function buildHtml(data: CallReportData): string {
                   <td style="padding:10px 16px;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Durée</td>
                   <td style="padding:10px 16px;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #f3f4f6;">${duration}</td>
                 </tr>
+                ${addressRow}
                 ${rdvRow}
               </tbody>
             </table>

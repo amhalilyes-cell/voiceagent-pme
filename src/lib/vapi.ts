@@ -168,6 +168,9 @@ export async function handleVapiEvent(
         generateSummary(report.transcript, rdvInfo, clientName);
       console.log("[Debug] summary utilisé:", summary);
 
+      // Adresse extraite de la transcription
+      const clientAddress = extractAddressFromTranscript(report.transcript);
+
       // Sauvegarde dans Supabase
       try {
         await saveCall({
@@ -175,6 +178,7 @@ export async function handleVapiEvent(
           vapiCallId: call.id,
           clientName,
           clientPhone,
+          clientAddress,
           durationSeconds,
           summary,
           transcript: report.transcript,
@@ -194,6 +198,7 @@ export async function handleVapiEvent(
           callId: call.id,
           clientName,
           clientPhone,
+          clientAddress,
           summary,
           transcript: report.transcript,
           durationSeconds,
@@ -474,6 +479,24 @@ function extractNameFromCalendarArgs(
 }
 
 /**
+ * Extrait une adresse depuis la transcription.
+ * Cherche un numéro + type de voie, ou un code postal français.
+ */
+function extractAddressFromTranscript(transcript: string): string | undefined {
+  // Numéro + type de voie : "12 rue de la Paix", "3 avenue Victor Hugo"
+  const voieMatch = transcript.match(
+    /(\d{1,4}\s+(?:rue|avenue|boulevard|place|impasse|allée|chemin|route|voie)[^,.\n]{0,50})/i
+  );
+  if (voieMatch) return voieMatch[1].trim();
+
+  // Code postal français seul comme fallback
+  const cpMatch = transcript.match(/\b(\d{5})\b/);
+  if (cpMatch) return cpMatch[1];
+
+  return undefined;
+}
+
+/**
  * Génère un résumé court de l'appel quand report.summary est vide.
  * Exemple : "Client : Amhal. Demande : Intervention urgente pour fuite d'eau. RDV confirmé le lundi 6 avril à 9h."
  */
@@ -503,6 +526,10 @@ function generateSummary(
     }
   }
   if (demande) parts.push(`Demande : ${demande}.`);
+
+  // Adresse
+  const adresse = extractAddressFromTranscript(transcript);
+  if (adresse) parts.push(`Adresse : ${adresse}.`);
 
   // RDV
   if (rdvInfo) {
