@@ -483,13 +483,25 @@ function extractNameFromCalendarArgs(
  * Cherche un numéro + type de voie, ou un code postal français.
  */
 function extractAddressFromTranscript(transcript: string): string | undefined {
-  // Numéro + type de voie : "12 rue de la Paix", "3 avenue Victor Hugo"
-  const voieMatch = transcript.match(
-    /(\d{1,4}\s+(?:rue|avenue|boulevard|place|impasse|allée|chemin|route|voie)[^,.\n]{0,50})/i
+  // 1. Numéro + type de voie élargi (cité, résidence, hameau, lieu-dit…)
+  const voieNumMatch = transcript.match(
+    /(\d{1,4}\s+(?:rue|avenue|boulevard|place|impasse|allée|chemin|route|voie|cité|résidence|hameau|lieu-dit)[^,\n]{0,60})/i
   );
-  if (voieMatch) return voieMatch[1].trim();
+  if (voieNumMatch) return voieNumMatch[1].trim();
 
-  // Code postal français seul comme fallback
+  // 2. Type de voie sans numéro : "rue des Lilas", "place Saint-Michel"
+  const voieSansNumMatch = transcript.match(
+    /(?:place|rue|avenue|boulevard|impasse|allée|chemin|résidence)\s+(?:des?|du|la|les|saint|sainte)?\s*[A-ZÀ-Ÿa-zà-ÿ][^,\n]{0,50}/i
+  );
+  if (voieSansNumMatch) return voieSansNumMatch[0].trim();
+
+  // 3. Code postal + ville : "75001 Paris", "69003 Lyon"
+  const cpVilleMatch = transcript.match(
+    /\b(\d{5})\s+([A-ZÀ-Ÿa-zà-ÿ][a-zà-ÿ\-]{2,})\b/
+  );
+  if (cpVilleMatch) return `${cpVilleMatch[1]} ${cpVilleMatch[2]}`;
+
+  // 4. Code postal seul en dernier recours
   const cpMatch = transcript.match(/\b(\d{5})\b/);
   if (cpMatch) return cpMatch[1];
 
