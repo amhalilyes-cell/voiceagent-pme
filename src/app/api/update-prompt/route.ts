@@ -100,13 +100,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
-      endCallPhrases: [
-        "au revoir",
-        "bonne journée",
-        "bonne soirée",
-        "à bientôt",
-        "à demain",
-      ],
+      endCallPhrases: [],
     }),
   });
 
