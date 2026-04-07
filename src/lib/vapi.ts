@@ -467,8 +467,8 @@ function extractNameFromCalendarArgs(
       const summary: string = args.summary ?? args.title ?? "";
       console.log("[Debug] GCal tool_call summary:", summary);
 
-      // "Intervention urgente - Amal" ou "RDV plomberie – Amal"
-      const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ0-9\s]+)\s*$/i);
+      // "Intervention urgente - Amhal, téléphone, adresse" → prend le premier mot après le tiret
+      const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ]+)\s*(?:,|\s|$)/i);
       console.log("[Debug] dashMatch result:", dashMatch);
       if (dashMatch) {
         const candidate = dashMatch[1].trim();
@@ -476,9 +476,8 @@ function extractNameFromCalendarArgs(
           "place", "places", "rue", "avenue", "boulevard", "impasse",
           "chemin", "route", "résidence", "villa", "allée", "voie", "cité",
         ]);
-        // Rejette si contient des chiffres ou si le premier mot est un type de voie
-        const firstWord = candidate.split(/\s+/)[0].toLowerCase();
-        if (!/\d/.test(candidate) && !MOTS_VOIE.has(firstWord)) {
+        const firstWord = candidate.toLowerCase();
+        if (!MOTS_VOIE.has(firstWord) && !FAUX_PRENOMS.has(firstWord)) {
           return candidate;
         }
       }
@@ -497,11 +496,18 @@ function extractNameFromCalendarArgs(
  */
 /** Cherche une adresse française dans un texte libre. */
 function extractAddressFromText(text: string): string | undefined {
-  // 1. Numéro + type de voie
-  const voieNumMatch = text.match(
-    /(\d{1,4}\s+(?:rue|avenue|boulevard|place|impasse|allée|chemin|route|voie|cité|résidence|hameau)[^,\n]{0,60})/i
+  // 1. Numéro + voie + CP + ville optionnels : "14 place des Pervenches, 62300 Lens"
+  const fullMatch = text.match(
+    /(\d{1,4}\s+(?:rue|avenue|boulevard|place|impasse|allée|chemin|route|voie|cité|résidence)[^,\n]{0,60}),?\s*(\d{5})?\s*([A-ZÀ-Ÿa-zà-ÿ][a-zà-ÿ\-]{2,})?/i
   );
-  if (voieNumMatch) return voieNumMatch[1].trim();
+  if (fullMatch) {
+    const voie = fullMatch[1].trim();
+    const cp = fullMatch[2];
+    const ville = fullMatch[3];
+    if (cp && ville) return `${voie}, ${cp} ${ville}`;
+    if (cp) return `${voie}, ${cp}`;
+    return voie;
+  }
 
   // 2. Type de voie sans numéro : "rue des Lilas", "place Saint-Michel"
   const voieSansNumMatch = text.match(

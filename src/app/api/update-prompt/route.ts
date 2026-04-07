@@ -4,8 +4,16 @@ export const dynamic = "force-dynamic";
 
 const VAPI_BASE_URL = "https://api.vapi.ai";
 
-/** Construit la ligne IMPORTANT avec la date/heure Paris actuelles (+5 min de marge) */
-function buildImportantLine(): string {
+/** Retourne la salutation adaptée à l'heure de Paris. */
+function getSalutation(heureParis: string): string {
+  const [h] = heureParis.split(":").map(Number);
+  if (h < 12) return "Bonjour";
+  if (h < 18) return "Bon après-midi";
+  return "Bonne soirée";
+}
+
+/** Construit la ligne IMPORTANT avec la date/heure Paris actuelles (+5 min de marge). */
+function buildImportantLine(): { line: string; salutation: string } {
   // +5 minutes pour éviter de proposer des créneaux qui débutent maintenant
   const now = new Date(Date.now() + 5 * 60 * 1000);
   const dateParis = new Intl.DateTimeFormat("fr-FR", {
@@ -21,7 +29,12 @@ function buildImportantLine(): string {
     minute: "2-digit",
     hour12: false,
   }).format(now);
-  return `IMPORTANT : Nous sommes le ${dateParis} et il est ${heureParis} heure de Paris. Tu DOIS utiliser cette date et cette heure. Ne propose jamais un créneau avant ${heureParis}.`;
+  const salutation = getSalutation(heureParis);
+  const line =
+    `IMPORTANT : Nous sommes le ${dateParis} et il est ${heureParis} heure de Paris. ` +
+    `Tu DOIS utiliser cette date et cette heure. Ne propose jamais un créneau avant ${heureParis}. ` +
+    `Salutation du moment : ${salutation}. Utilise "${salutation}" quand tu accueilles le client ET quand tu termines l'appel.`;
+  return { line, salutation };
 }
 
 /**
@@ -70,7 +83,7 @@ export async function POST(req: NextRequest) {
 
   // 3. Remplace la ligne IMPORTANT (ou la préfixe si absente)
   const oldContent: string = messages[sysIdx].content;
-  const newLine = buildImportantLine();
+  const { line: newLine, salutation } = buildImportantLine();
   const withoutOld = oldContent.replace(/^IMPORTANT\s*:.*(?:\r?\n){1,2}/i, "");
   const newContent = `${newLine}\n\n${withoutOld.trimStart()}`;
 
@@ -78,7 +91,7 @@ export async function POST(req: NextRequest) {
     i === sysIdx ? { ...m, content: newContent } : m
   );
 
-  // 4. PATCH l'assistant
+  // 4. PATCH l'assistant avec prompt + endCallPhrases
   const patchRes = await fetch(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
     method: "PATCH",
     headers: {
@@ -87,6 +100,13 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
+      endCallPhrases: [
+        "au revoir",
+        "bonne journée",
+        "bonne soirée",
+        "à bientôt",
+        "à demain",
+      ],
     }),
   });
 
@@ -96,6 +116,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err }, { status: 500 });
   }
 
-  console.log(`[update-prompt] Prompt mis à jour pour assistant ${assistantId} — ${newLine}`);
-  return NextResponse.json({ updated: true, importantLine: newLine });
+  console.log(`[update-prompt] Prompt mis à jour — ${salutation} — ${newLine}`);
+  return NextResponse.json({ updated: true, importantLine: newLine, salutation });
 }
