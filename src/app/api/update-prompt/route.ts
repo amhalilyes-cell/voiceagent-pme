@@ -103,6 +103,9 @@ export async function POST(req: NextRequest) {
       endCallPhrases: [],
       silenceTimeoutSeconds: 30,
       maxDurationSeconds: 600,
+      endCallMessage: "Au revoir et à bientôt !",
+      voicemailMessage: "Bonjour, vous avez contacté notre service. Nous ne sommes pas disponibles pour le moment. Merci de rappeler ou de nous laisser un message, nous vous recontacterons dans les plus brefs délais.",
+      firstMessage: "Bonjour ! Vous avez bien joint notre service. Je suis l'assistant vocal, comment puis-je vous aider ?",
     }),
   });
 
