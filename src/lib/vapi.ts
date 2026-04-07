@@ -90,6 +90,11 @@ export async function handleVapiEvent(
       console.log(`[Vapi] Rapport de fin d'appel — ID: ${call.id}`);
       console.log(`[Vapi] Résumé: ${report.summary}`);
 
+      // Fallbacks pour les champs potentiellement null (appel terminé anormalement)
+      const transcript = report.transcript ?? "";
+      const summaryRaw = report.summary ?? "";
+      const messages = report.messages ?? [];
+
       // Numéro du client : champ réel Vapi = customer.number
       const clientPhone = call.customer?.number ?? call.customer?.phoneNumber;
 
@@ -104,18 +109,18 @@ export async function handleVapiEvent(
       }
 
       // Nom client : customer.name > args GCal > transcript
-      const clientNameFromGcal = extractNameFromCalendarArgs(report.messages ?? []);
+      const clientNameFromGcal = extractNameFromCalendarArgs(messages);
       const clientName =
         call.customer?.name ??
         clientNameFromGcal ??
-        extractNameFromTranscript(report.transcript);
+        extractNameFromTranscript(transcript);
 
       // ── Debug ──────────────────────────────────────────
       console.log("[Debug] clientPhone:", clientPhone);
       console.log("[Debug] clientName:", call.customer?.name);
       console.log("[Debug] clientNameFromGcal:", clientNameFromGcal);
       console.log("[Debug] durationSeconds:", report.durationSeconds, durationSeconds);
-      console.log("[Debug] extractedName:", extractNameFromTranscript(report.transcript));
+      console.log("[Debug] extractedName:", extractNameFromTranscript(transcript));
       // ───────────────────────────────────────────────────
 
       // Date de l'appel en Europe/Paris
@@ -123,16 +128,16 @@ export async function handleVapiEvent(
       const callDateParis = callDate ? toParisTime(callDate) : undefined;
 
       // Corpus élargi pour la détection RDV : summary + transcript + messages du bot
-      const botMessagesText = (report.messages ?? [])
+      const botMessagesText = messages
         .filter((m) => m.role === "assistant")
         .map((m) => m.content)
         .join(" ");
-      const rdvCorpus = [report.summary, report.transcript, botMessagesText]
+      const rdvCorpus = [summaryRaw, transcript, botMessagesText]
         .filter(Boolean)
         .join(" ");
 
       // Recherche d'un événement Google Calendar confirmé dans les tool results
-      const calendarEvent = extractCalendarEvent(report.messages ?? []);
+      const calendarEvent = extractCalendarEvent(messages);
       if (calendarEvent) {
         console.log(`[Vapi] Événement GCal détecté — eventId: ${calendarEvent.eventId}, start: ${calendarEvent.startIso}`);
       }
@@ -164,14 +169,14 @@ export async function handleVapiEvent(
 
       // Résumé : utilise report.summary si disponible, sinon génère depuis la transcription
       const summary =
-        report.summary?.trim() ||
-        generateSummary(report.transcript, rdvInfo, clientName);
+        summaryRaw.trim() ||
+        generateSummary(transcript, rdvInfo, clientName);
       console.log("[Debug] summary utilisé:", summary);
 
       // Adresse : transcription en priorité, puis summary GCal en fallback
       const clientAddress =
-        extractAddressFromTranscript(report.transcript) ??
-        extractAddressFromCalendarSummary(report.messages ?? []);
+        extractAddressFromTranscript(transcript) ??
+        extractAddressFromCalendarSummary(messages);
 
       // Sauvegarde dans Supabase
       try {
@@ -183,7 +188,7 @@ export async function handleVapiEvent(
           clientAddress,
           durationSeconds,
           summary,
-          transcript: report.transcript,
+          transcript,
           recordingUrl: report.recordingUrl,
           rdv: rdvText,
           startedAt: call.startedAt,
@@ -202,7 +207,7 @@ export async function handleVapiEvent(
           clientPhone,
           clientAddress,
           summary,
-          transcript: report.transcript,
+          transcript,
           durationSeconds,
           recordingUrl: report.recordingUrl,
           rdv: rdvText,
