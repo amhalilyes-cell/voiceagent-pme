@@ -101,6 +101,8 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
       endCallPhrases: [],
+      silenceTimeoutSeconds: 30,
+      maxDurationSeconds: 600,
     }),
   });
 
