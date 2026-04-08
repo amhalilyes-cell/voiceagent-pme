@@ -173,10 +173,10 @@ export async function handleVapiEvent(
         generateSummary(transcript, rdvInfo, clientName);
       console.log("[Debug] summary utilisé:", summary);
 
-      // Adresse : transcription en priorité, puis summary GCal en fallback
+      // Adresse : summary GCal en priorité (adresse structurée), puis transcription en fallback
       const clientAddress =
-        extractAddressFromTranscript(transcript) ??
-        extractAddressFromCalendarSummary(messages);
+        extractAddressFromCalendarSummary(messages) ??
+        extractAddressFromTranscript(transcript);
 
       // Sauvegarde dans Supabase
       try {
@@ -533,7 +533,12 @@ function extractAddressFromTranscript(transcript: string): string | undefined {
 
 /**
  * Extrait une adresse depuis le summary d'un tool_call google_calendar_tool.
- * Ex : "Intervention urgente - Amhal, 14 place des Pervenches, 06 66 07 36 85"
+ * Format attendu : "Intervention [type] - [Nom], [téléphone], [adresse complète]"
+ * Ex : "Intervention fuite d'eau - Amal, 0 six soixante-cinq..., 14 places des Pervenches, Résidence des Fleurs, 62300 Lens"
+ *
+ * Stratégie : après le tiret, on a "Nom, Téléphone, Adresse...".
+ * On saute les 2 premiers éléments (nom + téléphone) et on prend le reste comme adresse.
+ * Fallback : extractAddressFromText() sur le summary entier.
  */
 function extractAddressFromCalendarSummary(
   messages: { role: string; content: string; name?: string }[]
@@ -555,9 +560,25 @@ function extractAddressFromCalendarSummary(
       let args: Record<string, string> = {};
       try { args = JSON.parse(argsRaw); } catch { continue; }
       const summary: string = args.summary ?? args.title ?? "";
+      console.log("[Debug] GCal summary pour adresse:", summary);
+
+      // Priorité 1 : format "Intervention X - Nom, Téléphone, Adresse..."
+      // On isole ce qui vient après le tiret, puis on saute les 2 premiers segments
+      const afterDash = summary.split(/[-–]/).slice(1).join("-").trim();
+      if (afterDash) {
+        const parts = afterDash.split(",").map((p) => p.trim()).filter(Boolean);
+        // parts[0] = Nom, parts[1] = Téléphone, parts[2..] = Adresse
+        if (parts.length >= 3) {
+          const address = parts.slice(2).join(", ");
+          console.log("[Debug] Adresse depuis GCal summary (format structuré):", address);
+          return address;
+        }
+      }
+
+      // Priorité 2 : recherche de pattern d'adresse dans le summary entier
       const found = extractAddressFromText(summary);
       if (found) {
-        console.log("[Debug] Adresse depuis GCal summary:", found);
+        console.log("[Debug] Adresse depuis GCal summary (regex):", found);
         return found;
       }
     }
