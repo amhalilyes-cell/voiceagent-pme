@@ -115,8 +115,12 @@ async function searchAvailableNumber(
 async function purchaseNumber(
   accountSid: string,
   auth: string,
-  phoneNumber: string
+  phoneNumber: string,
+  addressSid?: string
 ): Promise<void> {
+  const params: Record<string, string> = { PhoneNumber: phoneNumber };
+  if (addressSid) params.AddressSid = addressSid;
+
   const res = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers.json`,
     {
@@ -125,7 +129,7 @@ async function purchaseNumber(
         Authorization: `Basic ${auth}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ PhoneNumber: phoneNumber }),
+      body: new URLSearchParams(params),
     }
   );
   if (!res.ok) {
@@ -170,6 +174,7 @@ async function importNumberToVapi(
 export async function provisionPhoneNumber(vapiAssistantId: string): Promise<string> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const addressSid = process.env.TWILIO_ADDRESS_SID; // Requis pour les numéros FR (erreur 21631)
 
   if (!accountSid || !authToken) {
     throw new Error("[Onboarding] TWILIO_ACCOUNT_SID ou TWILIO_AUTH_TOKEN manquant");
@@ -177,18 +182,27 @@ export async function provisionPhoneNumber(vapiAssistantId: string): Promise<str
 
   const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
-  // Cherche d'abord en France
-  let phoneNumber = await searchAvailableNumber(accountSid, auth, "FR");
+  // Numéros FR nécessitent une adresse enregistrée dans Twilio (AddressSid)
+  // Si TWILIO_ADDRESS_SID n'est pas défini, on passe directement aux numéros US
+  let phoneNumber: string | null = null;
+  if (addressSid) {
+    phoneNumber = await searchAvailableNumber(accountSid, auth, "FR");
+    if (!phoneNumber) {
+      console.warn("[Onboarding] Aucun numéro FR disponible, bascule sur US");
+    }
+  } else {
+    console.warn("[Onboarding] TWILIO_ADDRESS_SID absent — numéros FR ignorés (erreur 21631), bascule sur US");
+  }
+
   if (!phoneNumber) {
-    console.warn("[Onboarding] Aucun numéro FR disponible, bascule sur US");
     phoneNumber = await searchAvailableNumber(accountSid, auth, "US");
   }
   if (!phoneNumber) {
     throw new Error("[Onboarding] Aucun numéro disponible (FR ou US)");
   }
 
-  await purchaseNumber(accountSid, auth, phoneNumber);
-  console.log(`[Onboarding] Numéro Twilio acheté: ${phoneNumber}`);
+  await purchaseNumber(accountSid, auth, phoneNumber, addressSid);
+  console.log(`[Onboarding] Numéro Twilio acheté: ${phoneNumber}${addressSid ? " (avec AddressSid)" : " (US, sans adresse FR)"}`);
 
   await importNumberToVapi(accountSid, authToken, phoneNumber, vapiAssistantId);
 
@@ -372,25 +386,10 @@ export async function sendWelcomeEmail(artisan: Artisan, phoneNumber: string): P
 // 4. VAPI — Pause / Réactivation
 // ─────────────────────────────────────────────
 
+// Note: l'API Vapi ne supporte plus isActive pour activer/désactiver un assistant.
+// Cette fonction log uniquement l'intention sans appel API.
 export async function setVapiAssistantActive(assistantId: string, active: boolean): Promise<void> {
-  const apiKey = process.env.VAPI_API_KEY;
-  if (!apiKey) throw new Error("[Vapi] VAPI_API_KEY manquante");
-
-  const res = await fetch(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ isActive: active }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`[Vapi] setAssistantActive(${active}) échoué pour ${assistantId}: ${err}`);
-  }
-
-  console.log(`[Vapi] Assistant ${assistantId} ${active ? "réactivé" : "mis en pause"}`);
+  console.log(`[Vapi] setVapiAssistantActive(${active}) ignoré — l'API Vapi ne supporte pas isActive (assistant: ${assistantId})`);
 }
 
 // ─────────────────────────────────────────────
