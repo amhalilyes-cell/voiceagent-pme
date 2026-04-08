@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 
-// Initialise le client Google OAuth2
-function getGoogleCalendarClient() {
+// Initialise le client Google OAuth2 avec le refresh_token de l'artisan (header) ou l'admin (env)
+function getGoogleCalendarClient(refreshToken: string) {
   const auth = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     process.env.GOOGLE_REDIRECT_URI
   );
 
-  auth.setCredentials({
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-  });
+  auth.setCredentials({ refresh_token: refreshToken });
 
   return google.calendar({ version: "v3", auth });
 }
@@ -19,6 +17,12 @@ function getGoogleCalendarClient() {
 // POST /api/calendar — appelé par Vapi tool call
 export async function POST(req: NextRequest) {
   try {
+    // Refresh token : priorité au header envoyé par Vapi (token de l'artisan), sinon admin
+    const refreshToken =
+      req.headers.get("x-google-refresh-token") ||
+      process.env.GOOGLE_REFRESH_TOKEN ||
+      "";
+
     const body = await req.json();
 
     // Vapi envoie les arguments de l'outil ici
@@ -38,7 +42,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const calendar = getGoogleCalendarClient();
+    const calendar = getGoogleCalendarClient(refreshToken);
 
     // Construit les dates de début et fin
     const startDateTime = new Date(`${date}T${time}:00`);
@@ -95,7 +99,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Paramètre date requis" }, { status: 400 });
     }
 
-    const calendar = getGoogleCalendarClient();
+    const refreshToken =
+      req.headers.get("x-google-refresh-token") ||
+      process.env.GOOGLE_REFRESH_TOKEN ||
+      "";
+
+    const calendar = getGoogleCalendarClient(refreshToken);
 
     // Récupère les événements du jour
     const startOfDay = new Date(`${date}T07:00:00`);

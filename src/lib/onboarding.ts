@@ -32,22 +32,29 @@ export async function createVapiAssistant(artisan: Artisan): Promise<string> {
 Tu es l'assistant vocal de ${artisan.nomEntreprise}, une entreprise de ${artisan.metier} basée en France.
 Tu réponds aux appels des clients de manière professionnelle, chaleureuse et efficace.
 
+Quand tu accueilles le client dis exactement : "Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal de ${artisan.prenom}, comment puis-je vous aider ?"
+
 Tes objectifs :
 1. Accueillir le client et identifier sa demande
 2. Prendre des rendez-vous si le client le souhaite (demande ses disponibilités et coordonnées)
 3. Répondre aux questions courantes sur les services proposés
-4. Collecter le nom et numéro de téléphone du client pour que l'artisan le rappelle si nécessaire
+4. Collecter le nom, numéro de téléphone et adresse du client pour que l'artisan le rappelle si nécessaire
 
 Informations importantes :
 - Entreprise : ${artisan.nomEntreprise}
 - Secteur : ${artisan.metier}
+- Responsable : ${artisan.prenom} ${artisan.nom}
 - Téléphone de l'entreprise : ${artisan.telephone}
 
 Règles :
 - Parle TOUJOURS en français, avec un accent naturel et professionnel
-- Sois concis : les appels doivent durer moins de 3 minutes
-- Si tu prends un RDV, confirme la date, l'heure et le lieu
+- Sois concis : les appels doivent durer moins de 5 minutes
+- Si tu prends un RDV, confirme la date, l'heure et le lieu, puis utilise l'outil google_calendar_tool pour l'enregistrer
+- Quand tu crées un événement dans le calendrier, mets dans le champ summary : "Intervention ${artisan.metier} - [Nom client], [téléphone], [adresse]"
 - Termine toujours par "Merci et à bientôt !"`;
+
+  const calendarServerUrl = `${APP_URL}/api/calendar`;
+  const artisanRefreshToken = artisan.refreshToken ?? process.env.GOOGLE_REFRESH_TOKEN ?? "";
 
   const body = {
     name: `Assistant ${artisan.nomEntreprise}`,
@@ -66,7 +73,56 @@ Règles :
       language: "fr",
       model: "nova-2",
     },
-    firstMessage: `Bonjour, vous avez bien contacté ${artisan.nomEntreprise}. Comment puis-je vous aider aujourd'hui ?`,
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "google_calendar_tool",
+          description: "Crée un rendez-vous dans l'agenda Google Calendar de l'artisan. Utilise cet outil dès qu'un RDV est confirmé avec le client.",
+          parameters: {
+            type: "object",
+            properties: {
+              summary: {
+                type: "string",
+                description: "Titre de l'événement. Format : 'Intervention [métier] - [Nom], [téléphone], [adresse]'",
+              },
+              date: {
+                type: "string",
+                description: "Date du RDV au format YYYY-MM-DD (ex: 2025-04-15)",
+              },
+              time: {
+                type: "string",
+                description: "Heure du RDV au format HH:MM (ex: 14:00)",
+              },
+              duration: {
+                type: "number",
+                description: "Durée en minutes (défaut: 60)",
+              },
+              clientName: {
+                type: "string",
+                description: "Prénom et nom du client",
+              },
+              clientPhone: {
+                type: "string",
+                description: "Numéro de téléphone du client",
+              },
+              serviceType: {
+                type: "string",
+                description: "Type d'intervention ou de service demandé",
+              },
+            },
+            required: ["summary", "date", "time", "clientName"],
+          },
+        },
+        server: {
+          url: calendarServerUrl,
+          headers: {
+            "x-google-refresh-token": artisanRefreshToken,
+          },
+        },
+      },
+    ],
+    firstMessage: `Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal de ${artisan.prenom}, comment puis-je vous aider ?`,
     endCallMessage: "Merci de votre appel et à bientôt !",
     serverUrl: `${APP_URL}/api/vapi/webhook`,
     serverUrlSecret: process.env.VAPI_WEBHOOK_SECRET,
