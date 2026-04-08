@@ -62,8 +62,12 @@ Règles :
       temperature: 0.7,
     },
     voice: {
-      provider: "azure",
-      voiceId: "fr-FR-DeniseNeural",
+      provider: "11labs",
+      voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel - voix française naturelle
+      stability: 0.5,
+      similarityBoost: 0.75,
+      style: 0,
+      useSpeakerBoost: true,
     },
     transcriber: {
       provider: "deepgram",
