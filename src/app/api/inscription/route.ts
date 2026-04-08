@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getStripe } from "@/lib/stripe";
-import { saveArtisan, findArtisanByEmail } from "@/lib/storage";
+import { saveArtisan, findArtisanByEmail, updateArtisan } from "@/lib/storage";
 import { hashPassword } from "@/lib/auth";
-import { sendTrialWelcomeEmail } from "@/lib/onboarding";
+import { createVapiAssistant, provisionPhoneNumber, sendTrialWelcomeEmail } from "@/lib/onboarding";
 import type { Artisan, MetierType } from "@/types/artisan";
 
 export async function POST(req: NextRequest) {
@@ -78,9 +78,36 @@ export async function POST(req: NextRequest) {
     };
     try {
       await saveArtisan(artisan);
+      console.log(`[api/inscription] Artisan ${artisan.id} sauvegardé en base`);
     } catch (dbErr) {
       console.error("[api/inscription] Sauvegarde artisan échouée (Supabase injoignable):", dbErr);
     }
+
+    // Onboarding Vapi + Twilio en arrière-plan (non-bloquant)
+    ;(async () => {
+      // 1. Création de l'assistant Vapi
+      let vapiAssistantId: string | undefined;
+      try {
+        console.log(`[Onboarding] Création assistant Vapi pour ${artisan.nomEntreprise} (${artisan.id})`);
+        vapiAssistantId = await createVapiAssistant(artisan);
+        await updateArtisan(artisan.id, { vapiAssistantId });
+        console.log(`[Onboarding] ✓ Assistant Vapi créé: ${vapiAssistantId} — sauvegardé pour ${artisan.id}`);
+      } catch (vapiErr) {
+        console.error(`[Onboarding] ✗ Échec création assistant Vapi pour ${artisan.id}:`, vapiErr);
+      }
+
+      // 2. Provisionnement numéro Twilio (seulement si Vapi a réussi)
+      if (vapiAssistantId) {
+        try {
+          console.log(`[Onboarding] Provisionnement numéro Twilio pour assistant ${vapiAssistantId}`);
+          const twilioPhoneNumber = await provisionPhoneNumber(vapiAssistantId);
+          await updateArtisan(artisan.id, { twilioPhoneNumber });
+          console.log(`[Onboarding] ✓ Numéro Twilio provisionné: ${twilioPhoneNumber} — sauvegardé pour ${artisan.id}`);
+        } catch (twilioErr) {
+          console.error(`[Onboarding] ✗ Échec provisionnement Twilio pour ${artisan.id}:`, twilioErr);
+        }
+      }
+    })();
 
     // Envoie l'email d'essai (non-bloquant)
     sendTrialWelcomeEmail(artisan).catch((err) =>
