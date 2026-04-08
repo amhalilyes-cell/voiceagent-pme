@@ -83,33 +83,31 @@ export async function POST(req: NextRequest) {
       console.error("[api/inscription] Sauvegarde artisan échouée (Supabase injoignable):", dbErr);
     }
 
-    // Onboarding Vapi + Twilio en arrière-plan (non-bloquant)
-    ;(async () => {
-      // 1. Création de l'assistant Vapi
-      let vapiAssistantId: string | undefined;
+    // Onboarding Vapi + Twilio — awaité pour éviter que Vercel tue la fonction avant la fin
+    // 1. Création de l'assistant Vapi
+    let vapiAssistantId: string | undefined;
+    try {
+      console.log(`[Onboarding] Création assistant Vapi pour ${artisan.nomEntreprise} (${artisan.id})`);
+      vapiAssistantId = await createVapiAssistant(artisan);
+      await updateArtisan(artisan.id, { vapiAssistantId });
+      console.log(`[Onboarding] ✓ Assistant Vapi créé: ${vapiAssistantId} — sauvegardé pour ${artisan.id}`);
+    } catch (vapiErr) {
+      console.error(`[Onboarding] ✗ Échec création assistant Vapi pour ${artisan.id}:`, vapiErr);
+    }
+
+    // 2. Provisionnement numéro Twilio (seulement si Vapi a réussi)
+    if (vapiAssistantId) {
       try {
-        console.log(`[Onboarding] Création assistant Vapi pour ${artisan.nomEntreprise} (${artisan.id})`);
-        vapiAssistantId = await createVapiAssistant(artisan);
-        await updateArtisan(artisan.id, { vapiAssistantId });
-        console.log(`[Onboarding] ✓ Assistant Vapi créé: ${vapiAssistantId} — sauvegardé pour ${artisan.id}`);
-      } catch (vapiErr) {
-        console.error(`[Onboarding] ✗ Échec création assistant Vapi pour ${artisan.id}:`, vapiErr);
+        console.log(`[Onboarding] Provisionnement numéro Twilio pour assistant ${vapiAssistantId}`);
+        const twilioPhoneNumber = await provisionPhoneNumber(vapiAssistantId);
+        await updateArtisan(artisan.id, { twilioPhoneNumber });
+        console.log(`[Onboarding] ✓ Numéro Twilio provisionné: ${twilioPhoneNumber} — sauvegardé pour ${artisan.id}`);
+      } catch (twilioErr) {
+        console.error(`[Onboarding] ✗ Échec provisionnement Twilio pour ${artisan.id}:`, twilioErr);
       }
+    }
 
-      // 2. Provisionnement numéro Twilio (seulement si Vapi a réussi)
-      if (vapiAssistantId) {
-        try {
-          console.log(`[Onboarding] Provisionnement numéro Twilio pour assistant ${vapiAssistantId}`);
-          const twilioPhoneNumber = await provisionPhoneNumber(vapiAssistantId);
-          await updateArtisan(artisan.id, { twilioPhoneNumber });
-          console.log(`[Onboarding] ✓ Numéro Twilio provisionné: ${twilioPhoneNumber} — sauvegardé pour ${artisan.id}`);
-        } catch (twilioErr) {
-          console.error(`[Onboarding] ✗ Échec provisionnement Twilio pour ${artisan.id}:`, twilioErr);
-        }
-      }
-    })();
-
-    // Envoie l'email d'essai (non-bloquant)
+    // Envoie l'email d'essai (non-bloquant — ne doit pas retarder la réponse)
     sendTrialWelcomeEmail(artisan).catch((err) =>
       console.error("[api/inscription] Email d'essai échoué (non-bloquant):", err)
     );
