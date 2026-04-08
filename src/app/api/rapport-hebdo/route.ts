@@ -277,7 +277,7 @@ export async function GET(req: NextRequest) {
   const html = buildWeeklyHtml(thisWeek, lastWeek, weekLabel);
 
   const resend = new Resend(resendKey);
-  const from = process.env.RESEND_FROM_EMAIL ?? "rapports@voiceagentpme.fr";
+  const from = process.env.RESEND_FROM_EMAIL ?? "noreply@voiceagent-pme.fr";
 
   const { error } = await resend.emails.send({
     from,

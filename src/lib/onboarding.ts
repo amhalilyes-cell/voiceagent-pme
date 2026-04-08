@@ -352,7 +352,7 @@ export async function sendWelcomeEmail(artisan: Artisan, phoneNumber: string): P
   if (!apiKey) throw new Error("[Onboarding] RESEND_API_KEY manquante");
 
   const resend = new Resend(apiKey);
-  const from = process.env.RESEND_FROM_EMAIL ?? "notifications@voiceagentpme.fr";
+  const from = process.env.RESEND_FROM_EMAIL ?? "noreply@voiceagent-pme.fr";
 
   const { error } = await resend.emails.send({
     from,
@@ -499,7 +499,7 @@ export async function sendTrialWelcomeEmail(artisan: Artisan): Promise<void> {
   if (!apiKey) throw new Error("[Onboarding] RESEND_API_KEY manquante");
 
   const resend = new Resend(apiKey);
-  const from = process.env.RESEND_FROM_EMAIL ?? "notifications@voiceagentpme.fr";
+  const from = process.env.RESEND_FROM_EMAIL ?? "noreply@voiceagent-pme.fr";
 
   const { error } = await resend.emails.send({
     from,
@@ -524,7 +524,7 @@ export async function sendReactivationEmail(artisan: Artisan, phoneNumber: strin
   if (!apiKey) throw new Error("[Onboarding] RESEND_API_KEY manquante");
 
   const resend = new Resend(apiKey);
-  const from = process.env.RESEND_FROM_EMAIL ?? "notifications@voiceagentpme.fr";
+  const from = process.env.RESEND_FROM_EMAIL ?? "noreply@voiceagent-pme.fr";
   const dashboardUrl = `${APP_URL}/dashboard/accueil`;
 
   const html = `<!DOCTYPE html>

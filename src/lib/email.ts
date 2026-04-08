@@ -215,7 +215,7 @@ function buildHtml(data: CallReportData): string {
 
 export async function sendCallReport(data: CallReportData): Promise<void> {
   const resend = getResend();
-  const from = process.env.RESEND_FROM_EMAIL ?? "notifications@voiceagentpme.fr";
+  const from = process.env.RESEND_FROM_EMAIL ?? "noreply@voiceagent-pme.fr";
 
   const clientName = data.clientName ?? extractClientName(data.transcript);
   const subject = clientName

@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.RESEND_API_KEY;
     if (apiKey) {
       const resend = new Resend(apiKey);
-      const from = process.env.RESEND_FROM_EMAIL ?? "notifications@voiceagentpme.fr";
+      const from = process.env.RESEND_FROM_EMAIL ?? "noreply@voiceagent-pme.fr";
       await resend.emails.send({
         from,
         to: artisan.email,
