@@ -53,9 +53,6 @@ Règles :
 - Quand tu crées un événement dans le calendrier, mets dans le champ summary : "Intervention ${artisan.metier} - [Nom client], [téléphone], [adresse]"
 - Termine toujours par "Merci et à bientôt !"`;
 
-  const calendarServerUrl = `${APP_URL}/api/calendar`;
-  const artisanRefreshToken = artisan.refreshToken ?? process.env.GOOGLE_REFRESH_TOKEN ?? "";
-
   const body = {
     name: `Assistant ${artisan.nomEntreprise}`,
     model: {
@@ -73,55 +70,6 @@ Règles :
       language: "fr",
       model: "nova-2",
     },
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "google_calendar_tool",
-          description: "Crée un rendez-vous dans l'agenda Google Calendar de l'artisan. Utilise cet outil dès qu'un RDV est confirmé avec le client.",
-          parameters: {
-            type: "object",
-            properties: {
-              summary: {
-                type: "string",
-                description: "Titre de l'événement. Format : 'Intervention [métier] - [Nom], [téléphone], [adresse]'",
-              },
-              date: {
-                type: "string",
-                description: "Date du RDV au format YYYY-MM-DD (ex: 2025-04-15)",
-              },
-              time: {
-                type: "string",
-                description: "Heure du RDV au format HH:MM (ex: 14:00)",
-              },
-              duration: {
-                type: "number",
-                description: "Durée en minutes (défaut: 60)",
-              },
-              clientName: {
-                type: "string",
-                description: "Prénom et nom du client",
-              },
-              clientPhone: {
-                type: "string",
-                description: "Numéro de téléphone du client",
-              },
-              serviceType: {
-                type: "string",
-                description: "Type d'intervention ou de service demandé",
-              },
-            },
-            required: ["summary", "date", "time", "clientName"],
-          },
-        },
-        server: {
-          url: calendarServerUrl,
-          headers: {
-            "x-google-refresh-token": artisanRefreshToken,
-          },
-        },
-      },
-    ],
     firstMessage: `Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal, comment puis-je vous aider ?`,
     endCallMessage: "Merci de votre appel et à bientôt !",
     serverUrl: `${APP_URL}/api/vapi/webhook`,
