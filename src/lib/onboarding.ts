@@ -182,27 +182,14 @@ export async function provisionPhoneNumber(vapiAssistantId: string): Promise<str
 
   const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
-  // Numéros FR nécessitent une adresse enregistrée dans Twilio (AddressSid)
-  // Si TWILIO_ADDRESS_SID n'est pas défini, on passe directement aux numéros US
-  let phoneNumber: string | null = null;
-  if (addressSid) {
-    phoneNumber = await searchAvailableNumber(accountSid, auth, "FR");
-    if (!phoneNumber) {
-      console.warn("[Onboarding] Aucun numéro FR disponible, bascule sur US");
-    }
-  } else {
-    console.warn("[Onboarding] TWILIO_ADDRESS_SID absent — numéros FR ignorés (erreur 21631), bascule sur US");
-  }
-
+  // Numéro US uniquement — évite les exigences réglementaires Twilio FR (erreur 21631)
+  const phoneNumber = await searchAvailableNumber(accountSid, auth, "US");
   if (!phoneNumber) {
-    phoneNumber = await searchAvailableNumber(accountSid, auth, "US");
-  }
-  if (!phoneNumber) {
-    throw new Error("[Onboarding] Aucun numéro disponible (FR ou US)");
+    throw new Error("[Onboarding] Aucun numéro US disponible");
   }
 
   await purchaseNumber(accountSid, auth, phoneNumber, addressSid);
-  console.log(`[Onboarding] Numéro Twilio acheté: ${phoneNumber}${addressSid ? " (avec AddressSid)" : " (US, sans adresse FR)"}`);
+  console.log(`[Onboarding] Numéro Twilio US acheté: ${phoneNumber}`);
 
   await importNumberToVapi(accountSid, authToken, phoneNumber, vapiAssistantId);
 
