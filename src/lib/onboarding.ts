@@ -32,7 +32,7 @@ export async function createVapiAssistant(artisan: Artisan): Promise<string> {
 Tu es l'assistant vocal de ${artisan.nomEntreprise}, une entreprise de ${artisan.metier} basée en France.
 Tu réponds aux appels des clients de manière professionnelle, chaleureuse et efficace.
 
-Quand tu accueilles le client dis exactement : "Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal de ${artisan.prenom}, comment puis-je vous aider ?"
+Quand tu accueilles le client dis exactement : "Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal, comment puis-je vous aider ?"
 
 Tes objectifs :
 1. Accueillir le client et identifier sa demande
@@ -122,7 +122,7 @@ Règles :
         },
       },
     ],
-    firstMessage: `Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal de ${artisan.prenom}, comment puis-je vous aider ?`,
+    firstMessage: `Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal, comment puis-je vous aider ?`,
     endCallMessage: "Merci de votre appel et à bientôt !",
     serverUrl: `${APP_URL}/api/vapi/webhook`,
     serverUrlSecret: process.env.VAPI_WEBHOOK_SECRET,
