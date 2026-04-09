@@ -70,9 +70,10 @@ Règles :
       useSpeakerBoost: true,
     },
     transcriber: {
-      provider: "11labs",
-      model: "scribe_v1",
+      provider: "deepgram",
+      model: "nova-3",
       language: "fr",
+      smartFormat: true,
     },
     firstMessage: `Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal, comment puis-je vous aider ?`,
     endCallMessage: "Merci de votre appel et à bientôt !",

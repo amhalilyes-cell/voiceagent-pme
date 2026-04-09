@@ -19,12 +19,13 @@ const FRENCH_RULES =
   `SI TU ES TENTÉ DE PARLER ANGLAIS, ARRÊTE-TOI ET REFORMULE EN FRANÇAIS. ` +
   `Tu ne dis jamais de date en anglais. Si la date est 2026, tu dis "deux mille vingt-six" et jamais "two thousand twenty-six". ` +
   `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer. ` +
-  `Quand le client donne son adresse, répète-la toujours mot par mot pour confirmer avant de créer le rendez-vous. Si quelque chose semble incorrect dans l'adresse, redemande.`;
+  `Quand le client donne son adresse, répète-la toujours mot par mot pour confirmer avant de créer le rendez-vous. Si quelque chose semble incorrect dans l'adresse, redemande. ` +
+  `Pour le code postal, demande toujours au client de l'épeler chiffre par chiffre. Pour la ville, répète-la pour confirmer. Ne jamais inventer ou modifier une adresse.`;
 
 /** Construit la ligne IMPORTANT avec la date/heure Paris actuelles (+5 min de marge). */
 function buildImportantLine(): { line: string; salutation: string } {
   // +5 minutes pour éviter de proposer des créneaux qui débutent maintenant
-  const now = new Date(Date.now() + 5 * 60 * 1000);
+  const now = new Date(Date.now() + 45 * 60 * 1000);
   const dateParis = new Intl.DateTimeFormat("fr-FR", {
     timeZone: "Europe/Paris",
     weekday: "long",
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
-      transcriber: { provider: "11labs", model: "scribe_v1", language: "fr" },
+      transcriber: { provider: "deepgram", model: "nova-3", language: "fr", smartFormat: true },
       endCallPhrases: [],
       silenceTimeoutSeconds: 60,
       maxDurationSeconds: 1800,
