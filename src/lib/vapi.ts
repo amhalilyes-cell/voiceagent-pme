@@ -686,19 +686,23 @@ function generateSummary(
   // Adresse
   const adresse = clientAddress ?? extractAddressFromTranscript(transcript) ?? nc;
 
-  // Motif : cherche la première phrase significative du client
+  // Motif : cherche une phrase du client contenant au moins un mot clé métier
+  const MOTIF_KEYWORDS = /fuite|panne|travaux|urgence|intervention|problème|réparer|installer|rendez-vous|besoin|dépannage|canalisation|chauffage|électricité|plomberie|serrure|vitre|toit/i;
   const demandePatterns = [
-    /User\s*:\s*([^.\n]{10,120})/i,
-    /(?:j'ai|j'aurais|je voudrais|il y a|c'est pour|c'est urgent|fuite|panne|problème|besoin)[^.\n]{0,100}/i,
+    /User\s*:\s*([^.\n]{10,120})/gi,
+    /(?:j'ai|j'aurais|je voudrais|il y a|c'est pour|c'est urgent)[^.\n]{0,100}/gi,
   ];
   let motif: string = nc;
   for (const re of demandePatterns) {
-    const m = transcript.match(re);
-    if (m) {
-      motif = (m[1] ?? m[0]).trim().replace(/^User\s*:\s*/i, "");
-      if (motif.length > 100) motif = motif.slice(0, 97) + "...";
-      break;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(transcript)) !== null) {
+      const candidate = (m[1] ?? m[0]).trim().replace(/^User\s*:\s*/i, "");
+      if (MOTIF_KEYWORDS.test(candidate)) {
+        motif = candidate.length > 100 ? candidate.slice(0, 97) + "..." : candidate;
+        break;
+      }
     }
+    if (motif !== nc) break;
   }
 
   // RDV

@@ -31,6 +31,8 @@ export async function sendConfirmationSMS(data: ConfirmationSMSData): Promise<vo
     ? `Pour toute question appelez le ${data.artisanPhone}.`
     : `Pour toute question, contactez-nous directement.`;
 
+  console.log("[SMS] heure utilisée:", data.rdvHeure);
+
   let content: string;
   if (data.rdvDate) {
     const heureStr = data.rdvHeure ? ` à ${data.rdvHeure}` : "";
