@@ -1,9 +1,85 @@
-// Version 3 - 05/04/2026
+// Version 4 - 09/04/2026
 import crypto from "crypto";
 import type { VapiWebhookEvent, VapiFunctionCallResponse } from "@/types/vapi";
 import { sendCallReport } from "@/lib/email";
 import { sendConfirmationSMS } from "@/lib/sms";
 import { saveCall, findArtisanByVapiAssistantId } from "@/lib/storage";
+
+/**
+ * Convertit les nombres français parlés (0-99) en chiffres dans un texte.
+ * Ex : "zéro six soixante-six zéro sept trente-six quatre-vingt-cinq" → "0666073685"
+ * Utile pour extraire les numéros de téléphone depuis la transcription.
+ */
+export function convertSpokenNumbersToDigits(text: string): string {
+  // Table complète 0-99, ordonnée du plus long au plus court pour éviter les remplacements partiels
+  const NUMS: [string, number][] = [
+    ["quatre-vingt-dix-neuf", 99], ["quatre-vingt-dix-huit", 98],
+    ["quatre-vingt-dix-sept", 97], ["quatre-vingt-seize", 96],
+    ["quatre-vingt-quinze", 95], ["quatre-vingt-quatorze", 94],
+    ["quatre-vingt-treize", 93], ["quatre-vingt-douze", 92],
+    ["quatre-vingt-onze", 91], ["quatre-vingt-dix", 90],
+    ["quatre-vingt-neuf", 89], ["quatre-vingt-huit", 88],
+    ["quatre-vingt-sept", 87], ["quatre-vingt-six", 86],
+    ["quatre-vingt-cinq", 85], ["quatre-vingt-quatre", 84],
+    ["quatre-vingt-trois", 83], ["quatre-vingt-deux", 82],
+    ["quatre-vingt-un", 81], ["quatre-vingts", 80], ["quatre-vingt", 80],
+    ["soixante-dix-neuf", 79], ["soixante-dix-huit", 78],
+    ["soixante-dix-sept", 77], ["soixante-seize", 76],
+    ["soixante-quinze", 75], ["soixante-quatorze", 74],
+    ["soixante-treize", 73], ["soixante-douze", 72],
+    ["soixante et onze", 71], ["soixante-onze", 71],
+    ["soixante-dix", 70],
+    ["soixante-neuf", 69], ["soixante-huit", 68],
+    ["soixante-sept", 67], ["soixante-six", 66],
+    ["soixante-cinq", 65], ["soixante-quatre", 64],
+    ["soixante-trois", 63], ["soixante-deux", 62],
+    ["soixante et un", 61], ["soixante-un", 61], ["soixante", 60],
+    ["cinquante-neuf", 59], ["cinquante-huit", 58],
+    ["cinquante-sept", 57], ["cinquante-six", 56],
+    ["cinquante-cinq", 55], ["cinquante-quatre", 54],
+    ["cinquante-trois", 53], ["cinquante-deux", 52],
+    ["cinquante et un", 51], ["cinquante-un", 51], ["cinquante", 50],
+    ["quarante-neuf", 49], ["quarante-huit", 48],
+    ["quarante-sept", 47], ["quarante-six", 46],
+    ["quarante-cinq", 45], ["quarante-quatre", 44],
+    ["quarante-trois", 43], ["quarante-deux", 42],
+    ["quarante et un", 41], ["quarante-un", 41], ["quarante", 40],
+    ["trente-neuf", 39], ["trente-huit", 38],
+    ["trente-sept", 37], ["trente-six", 36],
+    ["trente-cinq", 35], ["trente-quatre", 34],
+    ["trente-trois", 33], ["trente-deux", 32],
+    ["trente et un", 31], ["trente-un", 31], ["trente", 30],
+    ["vingt-neuf", 29], ["vingt-huit", 28],
+    ["vingt-sept", 27], ["vingt-six", 26],
+    ["vingt-cinq", 25], ["vingt-quatre", 24],
+    ["vingt-trois", 23], ["vingt-deux", 22],
+    ["vingt et un", 21], ["vingt-un", 21], ["vingt", 20],
+    ["dix-neuf", 19], ["dix-huit", 18], ["dix-sept", 17],
+    ["seize", 16], ["quinze", 15], ["quatorze", 14],
+    ["treize", 13], ["douze", 12], ["onze", 11], ["dix", 10],
+    ["neuf", 9], ["huit", 8], ["sept", 7], ["six", 6],
+    ["cinq", 5], ["quatre", 4], ["trois", 3], ["deux", 2],
+    ["une", 1], ["un", 1], ["zéro", 0], ["zero", 0],
+  ];
+
+  let result = text;
+  for (const [word, value] of NUMS) {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Frontières : pas précédé ni suivi d'une lettre (y compris accentuée)
+    result = result.replace(
+      new RegExp(`(?<![a-zà-ÿA-ZÀ-Ÿ])${escaped}(?![a-zà-ÿA-ZÀ-Ÿ])`, "gi"),
+      String(value)
+    );
+  }
+
+  // Fusionne les séquences de chiffres séparés par des espaces (pour les numéros de téléphone)
+  // ex: "0 6 66 07 36 85" → "0666073685"
+  for (let i = 0; i < 6; i++) {
+    result = result.replace(/(\d+)\s+(\d+)/g, "$1$2");
+  }
+
+  return result;
+}
 
 /** Formate une date ISO en heure Europe/Paris lisible */
 function toParisTime(iso: string): string {
@@ -91,7 +167,8 @@ export async function handleVapiEvent(
       console.log(`[Vapi] Résumé: ${report.summary}`);
 
       // Fallbacks pour les champs potentiellement null (appel terminé anormalement)
-      const transcript = report.transcript ?? "";
+      // convertSpokenNumbersToDigits appliqué pour faciliter l'extraction du téléphone
+      const transcript = convertSpokenNumbersToDigits(report.transcript ?? "");
       const summaryRaw = report.summary ?? "";
       const messages = report.messages ?? [];
 
@@ -167,16 +244,16 @@ export async function handleVapiEvent(
         console.warn(`[Vapi] Artisan introuvable pour assistantId ${call.assistantId}:`, err);
       }
 
-      // Résumé : utilise report.summary si disponible, sinon génère depuis la transcription
-      const summary =
-        summaryRaw.trim() ||
-        generateSummary(transcript, rdvInfo, clientName);
-      console.log("[Debug] summary utilisé:", summary);
-
       // Adresse : summary GCal en priorité (adresse structurée), puis transcription en fallback
       const clientAddress =
         extractAddressFromCalendarSummary(messages) ??
         extractAddressFromTranscript(transcript);
+
+      // Résumé : utilise report.summary si disponible, sinon génère depuis la transcription
+      const summary =
+        summaryRaw.trim() ||
+        generateSummary(transcript, rdvInfo, clientName, clientPhone, clientAddress);
+      console.log("[Debug] summary utilisé:", summary);
 
       // Sauvegarde dans Supabase
       try {
@@ -587,47 +664,49 @@ function extractAddressFromCalendarSummary(
 }
 
 /**
- * Génère un résumé court de l'appel quand report.summary est vide.
- * Exemple : "Client : Amhal. Demande : Intervention urgente pour fuite d'eau. RDV confirmé le lundi 6 avril à 9h."
+ * Génère un résumé structuré de l'appel quand report.summary est vide.
+ * Format : "Client : [nom]. Téléphone : [numéro]. Adresse : [adresse]. Motif : [raison]. RDV : [date et heure]."
+ * Affiche "Non communiqué" pour chaque champ manquant.
  */
 function generateSummary(
   transcript: string,
   rdvInfo: { date: string; heure?: string } | null,
-  clientName: string | undefined
+  clientName: string | undefined,
+  clientPhone?: string,
+  clientAddress?: string
 ): string {
-  const parts: string[] = [];
+  const nc = "Non communiqué";
 
-  // Ligne client
-  if (clientName) parts.push(`Client : ${clientName}.`);
+  // Nom
+  const nom = clientName ?? nc;
 
-  // Nature de la demande : cherche la première phrase significative du client
+  // Téléphone
+  const tel = clientPhone ?? nc;
+
+  // Adresse
+  const adresse = clientAddress ?? extractAddressFromTranscript(transcript) ?? nc;
+
+  // Motif : cherche la première phrase significative du client
   const demandePatterns = [
     /User\s*:\s*([^.\n]{10,120})/i,
     /(?:j'ai|j'aurais|je voudrais|il y a|c'est pour|c'est urgent|fuite|panne|problème|besoin)[^.\n]{0,100}/i,
   ];
-  let demande: string | undefined;
+  let motif: string = nc;
   for (const re of demandePatterns) {
     const m = transcript.match(re);
     if (m) {
-      demande = (m[1] ?? m[0]).trim().replace(/^User\s*:\s*/i, "");
-      // Tronque à 100 chars
-      if (demande.length > 100) demande = demande.slice(0, 97) + "...";
+      motif = (m[1] ?? m[0]).trim().replace(/^User\s*:\s*/i, "");
+      if (motif.length > 100) motif = motif.slice(0, 97) + "...";
       break;
     }
   }
-  if (demande) parts.push(`Demande : ${demande}.`);
-
-  // Adresse
-  const adresse = extractAddressFromTranscript(transcript);
-  if (adresse) parts.push(`Adresse : ${adresse}.`);
 
   // RDV
-  if (rdvInfo) {
-    const heureStr = rdvInfo.heure ? ` à ${rdvInfo.heure}` : "";
-    parts.push(`RDV confirmé le ${rdvInfo.date}${heureStr}.`);
-  }
+  const rdv = rdvInfo
+    ? `${rdvInfo.date}${rdvInfo.heure ? ` à ${rdvInfo.heure}` : ""}`
+    : nc;
 
-  return parts.length > 0 ? parts.join(" ") : "Appel traité par l'assistant vocal.";
+  return `Client : ${nom}. Téléphone : ${tel}. Adresse : ${adresse}. Motif : ${motif}. RDV : ${rdv}.`;
 }
 
 /** Mots à exclure des captures de prénom (faux positifs fréquents) */

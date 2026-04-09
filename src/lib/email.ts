@@ -82,24 +82,23 @@ function formatParisDate(iso?: string): string {
 }
 
 function buildHtml(data: CallReportData): string {
-  const clientName = data.clientName ?? extractClientName(data.transcript) ?? "Inconnu";
-  const clientPhone = data.clientPhone ?? extractPhone(data.transcript) ?? "–";
+  const nc = "Non communiqué";
+  const clientName = data.clientName ?? extractClientName(data.transcript) ?? nc;
+  const clientPhone = data.clientPhone ?? extractPhone(data.transcript) ?? nc;
   const rdv = data.rdv ?? extractRdv(data.summary + " " + data.transcript);
   const duration = formatDuration(data.durationSeconds);
   const callDateFormatted = formatParisDate(data.callDate);
-  const addressRow = data.clientAddress
-    ? `<tr>
+  const addressValue = data.clientAddress ?? nc;
+  const addressRow = `<tr>
         <td style="padding:10px 16px;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Adresse</td>
-        <td style="padding:10px 16px;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #f3f4f6;">${data.clientAddress}</td>
-       </tr>`
-    : "";
+        <td style="padding:10px 16px;font-size:14px;font-weight:600;color:${data.clientAddress ? "#111827" : "#9ca3af"};border-bottom:1px solid #f3f4f6;">${addressValue}</td>
+       </tr>`;
 
-  const rdvRow = rdv
-    ? `<tr>
+  const rdvValue = rdv ?? nc;
+  const rdvRow = `<tr>
         <td style="padding:10px 16px;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">RDV pris</td>
-        <td style="padding:10px 16px;font-size:14px;font-weight:600;color:#059669;border-bottom:1px solid #f3f4f6;">${rdv}</td>
-       </tr>`
-    : "";
+        <td style="padding:10px 16px;font-size:14px;font-weight:600;color:${rdv ? "#059669" : "#9ca3af"};border-bottom:1px solid #f3f4f6;">${rdvValue}</td>
+       </tr>`;
 
   const recordingRow = data.recordingUrl
     ? `<p style="margin:16px 0 0;">
@@ -178,7 +177,7 @@ function buildHtml(data: CallReportData): string {
             <!-- Résumé -->
             <div style="background:#eff6ff;border-left:4px solid #2563eb;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:24px;">
               <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#1d4ed8;text-transform:uppercase;letter-spacing:.05em;">Résumé de l'appel</p>
-              <p style="margin:0;font-size:14px;color:#1e3a5f;line-height:1.6;">${data.summary || "Aucun résumé disponible."}</p>
+              <p style="margin:0;font-size:14px;color:#1e3a5f;line-height:1.6;">${data.summary || nc}</p>
             </div>
 
             <!-- Transcription -->

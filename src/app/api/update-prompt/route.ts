@@ -12,6 +12,12 @@ function getSalutation(heureParis: string): string {
   return "Bonne soirée";
 }
 
+/** Règles langue française — injectées en tête de chaque prompt. */
+const FRENCH_RULES =
+  `TU PARLES UNIQUEMENT EN FRANÇAIS. JAMAIS UN MOT ANGLAIS. PAS DE "GOODBYE", PAS DE "THANK YOU", PAS DE "OK". ` +
+  `SI TU ES TENTÉ DE PARLER ANGLAIS, ARRÊTE-TOI ET REFORMULE EN FRANÇAIS. ` +
+  `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer.`;
+
 /** Construit la ligne IMPORTANT avec la date/heure Paris actuelles (+5 min de marge). */
 function buildImportantLine(): { line: string; salutation: string } {
   // +5 minutes pour éviter de proposer des créneaux qui débutent maintenant
@@ -84,8 +90,10 @@ export async function POST(req: NextRequest) {
   // 3. Remplace la ligne IMPORTANT (ou la préfixe si absente)
   const oldContent: string = messages[sysIdx].content;
   const { line: newLine, salutation } = buildImportantLine();
-  const withoutOld = oldContent.replace(/^IMPORTANT\s*:.*(?:\r?\n){1,2}/i, "");
-  const newContent = `${newLine}\n\n${withoutOld.trimStart()}`;
+  const withoutOld = oldContent
+    .replace(/^TU PARLES UNIQUEMENT.*?\n\n/is, "")
+    .replace(/^IMPORTANT\s*:.*(?:\r?\n){1,2}/i, "");
+  const newContent = `${FRENCH_RULES}\n\n${newLine}\n\n${withoutOld.trimStart()}`;
 
   const updatedMessages = messages.map((m, i) =>
     i === sysIdx ? { ...m, content: newContent } : m
