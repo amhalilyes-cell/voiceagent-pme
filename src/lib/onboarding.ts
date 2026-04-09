@@ -71,8 +71,10 @@ Règles :
     },
     transcriber: {
       provider: "deepgram",
-      language: "fr",
       model: "nova-2",
+      language: "fr",
+      smartFormat: true,
+      numerals: true,
     },
     firstMessage: `Bonjour, vous avez bien joint ${artisan.nomEntreprise}, je suis l'assistant vocal, comment puis-je vous aider ?`,
     endCallMessage: "Merci de votre appel et à bientôt !",
