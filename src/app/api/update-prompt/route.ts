@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
   const oldContent: string = messages[sysIdx].content;
   const { line: newLine, salutation } = buildImportantLine();
   const withoutOld = oldContent
-    .replace(/^TU PARLES UNIQUEMENT.*?\n\n/is, "")
+    .replace(/^TU PARLES UNIQUEMENT[\s\S]*?\n\n/, "")
     .replace(/^IMPORTANT\s*:.*(?:\r?\n){1,2}/i, "");
   const newContent = `${FRENCH_RULES}\n\n${newLine}\n\n${withoutOld.trimStart()}`;
 
