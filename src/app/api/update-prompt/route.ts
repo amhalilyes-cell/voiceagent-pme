@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { findArtisanByVapiAssistantId } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,9 @@ function getSalutation(heureParis: string): string {
 const FRENCH_RULES =
   `TU PARLES UNIQUEMENT EN FRANÇAIS. JAMAIS UN MOT ANGLAIS. PAS DE "GOODBYE", PAS DE "THANK YOU", PAS DE "OK". ` +
   `SI TU ES TENTÉ DE PARLER ANGLAIS, ARRÊTE-TOI ET REFORMULE EN FRANÇAIS. ` +
-  `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer.`;
+  `Tu ne dis jamais de date en anglais. Si la date est 2026, tu dis "deux mille vingt-six" et jamais "two thousand twenty-six". ` +
+  `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer. ` +
+  `Quand le client donne son adresse, répète-la toujours mot par mot pour confirmer avant de créer le rendez-vous. Si quelque chose semble incorrect dans l'adresse, redemande.`;
 
 /** Construit la ligne IMPORTANT avec la date/heure Paris actuelles (+5 min de marge). */
 function buildImportantLine(): { line: string; salutation: string } {
@@ -69,7 +72,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "assistantId requis" }, { status: 400 });
   }
 
-  // 1. Récupère l'assistant actuel
+  // 1. Récupère le nom de l'entreprise depuis Supabase pour personnaliser le firstMessage
+  let nomEntreprise: string | undefined;
+  try {
+    const artisan = await findArtisanByVapiAssistantId(assistantId);
+    nomEntreprise = artisan?.nomEntreprise;
+  } catch {
+    // Non-bloquant — on utilisera le fallback générique
+  }
+  const firstMessage = nomEntreprise
+    ? `Bonjour, vous avez bien joint ${nomEntreprise}, je suis l'assistant vocal, comment puis-je vous aider ?`
+    : "Bonjour, vous avez bien joint notre service, je suis l'assistant vocal, comment puis-je vous aider ?";
+
+  // 2. Récupère l'assistant actuel
   const getRes = await fetch(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
@@ -80,14 +95,14 @@ export async function POST(req: NextRequest) {
   }
   const assistant = await getRes.json();
 
-  // 2. Trouve le message système
+  // 3. Trouve le message système
   const messages: { role: string; content: string }[] = assistant?.model?.messages ?? [];
   const sysIdx = messages.findIndex((m) => m.role === "system");
   if (sysIdx === -1) {
     return NextResponse.json({ error: "Prompt système introuvable" }, { status: 422 });
   }
 
-  // 3. Remplace la ligne IMPORTANT (ou la préfixe si absente)
+  // 4. Remplace la ligne IMPORTANT (ou la préfixe si absente)
   const oldContent: string = messages[sysIdx].content;
   const { line: newLine, salutation } = buildImportantLine();
   const withoutOld = oldContent
@@ -99,7 +114,7 @@ export async function POST(req: NextRequest) {
     i === sysIdx ? { ...m, content: newContent } : m
   );
 
-  // 4. PATCH l'assistant avec prompt + endCallPhrases
+  // 5. PATCH l'assistant avec prompt + firstMessage personnalisé
   const patchRes = await fetch(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
     method: "PATCH",
     headers: {
@@ -113,7 +128,7 @@ export async function POST(req: NextRequest) {
       maxDurationSeconds: 1800,
       endCallMessage: "Au revoir et à bientôt !",
       voicemailMessage: "Bonjour, vous avez contacté notre service. Nous ne sommes pas disponibles pour le moment. Merci de rappeler ou de nous laisser un message, nous vous recontacterons dans les plus brefs délais.",
-      firstMessage: "Bonjour ! Vous avez bien joint notre service. Je suis l'assistant vocal, comment puis-je vous aider ?",
+      firstMessage,
     }),
   });
 
