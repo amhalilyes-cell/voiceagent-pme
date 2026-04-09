@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
+      transcriber: { provider: "11labs", model: "scribe_v1", language: "fr" },
       endCallPhrases: [],
       silenceTimeoutSeconds: 60,
       maxDurationSeconds: 1800,
