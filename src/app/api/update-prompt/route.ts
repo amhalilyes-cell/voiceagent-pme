@@ -22,7 +22,8 @@ const FRENCH_RULES =
   `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer. ` +
   `Quand le client donne son adresse, répète-la toujours mot par mot pour confirmer avant de créer le rendez-vous. Si quelque chose semble incorrect dans l'adresse, redemande. ` +
   `Pour le code postal, demande toujours au client de l'épeler chiffre par chiffre. Pour la ville, répète-la pour confirmer. Ne jamais inventer ou modifier une adresse. ` +
-  `Après avoir confirmé le rendez-vous, demande toujours : 'Avez-vous d'autres questions ?' Si le client a des questions, réponds-y. Quand le client dit au revoir, bonne journée, bonne soirée ou à bientôt, réponds 'Au revoir et à bientôt !' puis raccroche automatiquement.`;
+  `Après avoir confirmé le rendez-vous, demande toujours : 'Avez-vous d'autres questions ?' Si le client a des questions, réponds-y. Quand le client dit au revoir, bonne journée, bonne soirée ou à bientôt, réponds 'Au revoir et à bientôt !' puis raccroche automatiquement. ` +
+  `Après avoir pris le type de permis souhaité, demande au futur élève sa ville ou son code postal pour savoir s'il est bien dans la zone de desserte de l'auto-école.`;
 
 /** Connaissances spécifiques auto-école — injectées si typeEtablissement === "auto-ecole". */
 const AUTO_ECOLE_KNOWLEDGE =
@@ -32,7 +33,8 @@ const AUTO_ECOLE_KNOWLEDGE =
   `Documents généralement requis pour l'inscription au permis B : pièce d'identité valide, justificatif de domicile, photo d'identité, NEPH si déjà attribué. ` +
   `Délais moyens : permis B en formation classique 6 à 12 mois, permis accéléré (stage intensif) 1 à 2 semaines de formation + attente examen, AAC (conduite accompagnée) dès 15 ans avec un accompagnateur agréé. ` +
   `Différences permis : AM = cyclomoteurs (dès 14 ans) ; A2 = motos jusqu'à 35 kW (dès 18 ans) ; A = toutes motos après 2 ans en A2 ou dès 24 ans ; B = voitures (dès 17 ans en AAC, 18 ans en classique) ; C = poids lourds ; D = transports en commun ; BE = voiture + remorque lourde. ` +
-  `Quand un futur élève appelle pour s'inscrire ou prendre un rendez-vous, demande-lui systématiquement s'il possède déjà un numéro NEPH. Si oui, demande-lui de l'avoir avec lui lors de son rendez-vous. Si non, rassure-le en lui disant que l'auto-école s'en occupera lors de son inscription.`;
+  `Quand un futur élève appelle pour s'inscrire ou prendre un rendez-vous, demande-lui systématiquement s'il possède déjà un numéro NEPH. Si oui, demande-lui de l'avoir avec lui lors de son rendez-vous. Si non, rassure-le en lui disant que l'auto-école s'en occupera lors de son inscription. ` +
+  `Dans le titre du rendez-vous Google Calendar, inclus toujours : type de permis, nom complet, téléphone et ville du futur élève. Format : "RDV permis [TYPE] - [Prénom Nom], [téléphone], [ville]".`;
 
 /** Construit le bloc INFORMATIONS DE L'ÉTABLISSEMENT à injecter dans le prompt. */
 function buildEtablissementBlock(artisan: Artisan): string | null {

@@ -252,7 +252,7 @@ export async function handleVapiEvent(
       // Résumé : utilise report.summary si disponible, sinon génère depuis la transcription
       const summary =
         summaryRaw.trim() ||
-        generateSummary(transcript, rdvInfo, clientName, clientPhone, clientAddress);
+        generateSummary(transcript, rdvInfo, clientName, clientPhone, clientAddress, messages);
       console.log("[Debug] summary utilisé:", summary);
 
       // Sauvegarde dans Supabase
@@ -549,8 +549,9 @@ function extractNameFromCalendarArgs(
       const summary: string = args.summary ?? args.title ?? "";
       console.log("[Debug] GCal tool_call summary:", summary);
 
-      // "Intervention urgente - Amhal, téléphone, adresse" → prend le premier mot après le tiret
-      const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ]+)\s*(?:,|\s|$)/i);
+      // "RDV permis B - Ilyes Amhal, 0666073685" ou "Intervention - Nom, tel, adresse"
+      // → capture tout ce qui est entre le tiret et la première virgule comme nom complet
+      const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ][A-ZÀ-Ÿa-zà-ÿ\s]+?)\s*,/i);
       console.log("[Debug] dashMatch result:", dashMatch);
       if (dashMatch) {
         const candidate = dashMatch[1].trim();
@@ -558,7 +559,7 @@ function extractNameFromCalendarArgs(
           "place", "places", "rue", "avenue", "boulevard", "impasse",
           "chemin", "route", "résidence", "villa", "allée", "voie", "cité",
         ]);
-        const firstWord = candidate.toLowerCase();
+        const firstWord = candidate.split(" ")[0].toLowerCase();
         if (!MOTS_VOIE.has(firstWord) && !FAUX_PRENOMS.has(firstWord)) {
           return candidate;
         }
@@ -673,7 +674,8 @@ function generateSummary(
   rdvInfo: { date: string; heure?: string } | null,
   clientName: string | undefined,
   clientPhone?: string,
-  clientAddress?: string
+  clientAddress?: string,
+  messages?: { role: string; content: string; name?: string }[]
 ): string {
   const nc = "Non communiqué";
 
@@ -687,7 +689,7 @@ function generateSummary(
   const adresse = clientAddress ?? extractAddressFromTranscript(transcript) ?? nc;
 
   // Motif : cherche une phrase du client contenant au moins un mot clé métier
-  const MOTIF_KEYWORDS = /fuite|panne|travaux|urgence|intervention|problème|réparer|installer|rendez-vous|besoin|dépannage|canalisation|chauffage|électricité|plomberie|serrure|vitre|toit/i;
+  const MOTIF_KEYWORDS = /fuite|panne|travaux|urgence|intervention|problème|réparer|installer|rendez-vous|besoin|dépannage|canalisation|chauffage|électricité|plomberie|serrure|vitre|toit|permis|conduire|leçon|moniteur|code|examen|inscription|élève|neph|cpf|moto|voiture|auto-école/i;
   // Phrases génériques sans valeur informative — exclues même si elles contiennent un mot clé
   const MOTIF_GENERIQUE = /^(?:je voudrais\s+)?(?:prendre\s+)?(?:un\s+)?rendez-vous\.?$/i;
   const demandePatterns = [
@@ -707,9 +709,14 @@ function generateSummary(
     if (motif !== nc) break;
   }
 
-  // RDV
-  const rdv = rdvInfo
-    ? `${rdvInfo.date}${rdvInfo.heure ? ` à ${rdvInfo.heure}` : ""}`
+  // RDV : si rdvInfo est null, cherche dans les tool_call_result un événement confirmé
+  let resolvedRdvInfo = rdvInfo;
+  if (!resolvedRdvInfo && messages && messages.length > 0) {
+    resolvedRdvInfo = extractCalendarEvent(messages);
+  }
+
+  const rdv = resolvedRdvInfo
+    ? `${resolvedRdvInfo.date}${resolvedRdvInfo.heure ? ` à ${resolvedRdvInfo.heure}` : ""}`
     : nc;
 
   return `Client : ${nom}. Téléphone : ${tel}. Adresse : ${adresse}. Motif : ${motif}. RDV : ${rdv}.`;
