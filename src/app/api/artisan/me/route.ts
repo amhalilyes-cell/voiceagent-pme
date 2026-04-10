@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { findArtisanById, updateArtisan } from "@/lib/storage";
+import type { TypeEtablissement } from "@/types/artisan";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -28,7 +29,7 @@ export async function PATCH(req: NextRequest) {
   let body: Partial<{
     nomEntreprise: string;
     telephone: string;
-    typeEtablissement: string;
+    typeEtablissement: TypeEtablissement;
     permisProposes: string[];
     tarifHeureConduite: number;
     forfaits: string;
