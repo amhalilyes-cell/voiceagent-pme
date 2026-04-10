@@ -21,7 +21,8 @@ const FRENCH_RULES =
   `Tu ne dis jamais de date en anglais. Si la date est 2026, tu dis "deux mille vingt-six" et jamais "two thousand twenty-six". ` +
   `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer. ` +
   `Quand le client donne son adresse, répète-la toujours mot par mot pour confirmer avant de créer le rendez-vous. Si quelque chose semble incorrect dans l'adresse, redemande. ` +
-  `Pour le code postal, demande toujours au client de l'épeler chiffre par chiffre. Pour la ville, répète-la pour confirmer. Ne jamais inventer ou modifier une adresse.`;
+  `Pour le code postal, demande toujours au client de l'épeler chiffre par chiffre. Pour la ville, répète-la pour confirmer. Ne jamais inventer ou modifier une adresse. ` +
+  `Pour terminer l'appel, dis toujours exactement : 'Au revoir et à bientôt !' puis raccroche automatiquement.`;
 
 /** Connaissances spécifiques auto-école — injectées si typeEtablissement === "auto-ecole". */
 const AUTO_ECOLE_KNOWLEDGE =
@@ -186,7 +187,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
       transcriber: { provider: "deepgram", model: "nova-3", language: "fr", smartFormat: true },
-      endCallPhrases: [],
+      endCallPhrases: ["au revoir et à bientôt", "bonne journée et à bientôt", "à très bientôt", "passez une bonne journée", "bonne soirée et à bientôt"],
       silenceTimeoutSeconds: 60,
       maxDurationSeconds: 1800,
       endCallMessage: "Au revoir et à bientôt !",
