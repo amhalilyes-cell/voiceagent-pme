@@ -125,6 +125,35 @@ export function verifyVapiSignature(
 }
 
 /**
+ * Filtre les blocs hallucinés par le transcripteur dans la transcription.
+ * Supprime les phrases/paragraphes contenant :
+ * - Des mots anglais caractéristiques (hallucination LLM)
+ * - Des montants en dollars ($)
+ * - Des noms de villes non françaises typiques des hallucinations
+ * - Des noms de journalistes/présentateurs souvent hallucinés
+ */
+function filterHallucinatedBlocks(transcript: string): string {
+  const HALLUCINATION_PATTERNS = [
+    /\$\s*\d+/,                                                        // montants en dollars
+    /\b(?:thank you|goodbye|you're welcome|have a nice day|see you)\b/i, // formules anglaises
+    /\b(?:washington|new york|london|los angeles|chicago|silicon valley)\b/i, // villes non françaises
+    /\b(?:breaking news|stay tuned|live from|reported by|anchor|correspondent)\b/i, // vocabulaire journalistique
+    /\b(?:subscribe|newsletter|podcast|episode|viewers|listeners)\b/i,  // vocabulaire médias
+    /[A-Za-z]{4,}\s+[A-Za-z]{4,}\s+[A-Za-z]{4,}\s+[A-Za-z]{4,}\s+[A-Za-z]{4,}/, // suite de 5+ mots anglais consécutifs
+  ];
+
+  // Découpe par lignes, filtre les lignes suspectes, recolle
+  const lines = transcript.split("\n");
+  const filtered = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return true; // garde les lignes vides (structure)
+    return !HALLUCINATION_PATTERNS.some((re) => re.test(trimmed));
+  });
+
+  return filtered.join("\n");
+}
+
+/**
  * Gestionnaire centralisé des événements Vapi.
  * Retourne une réponse optionnelle (utile pour les function-calls).
  */
@@ -168,7 +197,8 @@ export async function handleVapiEvent(
 
       // Fallbacks pour les champs potentiellement null (appel terminé anormalement)
       // convertSpokenNumbersToDigits appliqué pour faciliter l'extraction du téléphone
-      const transcript = convertSpokenNumbersToDigits(report.transcript ?? "");
+      // filterHallucinatedBlocks supprime les blocs parasites introduits par le transcripteur
+      const transcript = filterHallucinatedBlocks(convertSpokenNumbersToDigits(report.transcript ?? ""));
       const summaryRaw = report.summary ?? "";
       const messages = report.messages ?? [];
 
@@ -744,6 +774,8 @@ const FAUX_PRENOMS = new Set([
 function extractNameFromTranscript(transcript: string): string | undefined {
   // Patterns ordonnés par fiabilité décroissante
   const patterns: RegExp[] = [
+    // Nom répété deux fois : "Thomas Dupont Thomas Dupont" → prend la première occurrence
+    /\b([A-ZÀ-Ÿ][a-zà-ÿ]+\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)\s+\1\b/,
     // Déclarations explicites du client (lignes "User:" ou texte brut)
     /(?:^|User\s*:\s*).*?je m['']appelle\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/im,
     /(?:^|User\s*:\s*).*?mon nom c['']est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/im,

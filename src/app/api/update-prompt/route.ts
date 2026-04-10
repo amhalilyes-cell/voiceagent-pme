@@ -22,8 +22,9 @@ const FRENCH_RULES =
   `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer. ` +
   `Quand le client donne son adresse, répète-la toujours mot par mot pour confirmer avant de créer le rendez-vous. Si quelque chose semble incorrect dans l'adresse, redemande. ` +
   `Pour le code postal, demande toujours au client de l'épeler chiffre par chiffre. Pour la ville, répète-la pour confirmer. Ne jamais inventer ou modifier une adresse. ` +
-  `Après avoir confirmé le rendez-vous, demande toujours : 'Avez-vous d'autres questions ?' Si le client a des questions, réponds-y. Quand le client dit au revoir, bonne journée, bonne soirée ou à bientôt, réponds 'Au revoir et à bientôt !' puis raccroche automatiquement. ` +
-  `Après avoir pris le type de permis souhaité, demande au futur élève sa ville ou son code postal pour savoir s'il est bien dans la zone de desserte de l'auto-école.`;
+  `Dès que le client dit merci au revoir, au revoir, bonne journée ou à bientôt, tu dis immédiatement "Au revoir et à bientôt !" puis tu raccroches sans attendre. Ne dis jamais "Effectivement" ou autre chose après. ` +
+  `Une fois le RDV confirmé, conclus directement avec "Au revoir et à bientôt !" puis raccroche. Ne pose aucune question supplémentaire. ` +
+  `Après avoir pris le type de permis, demande obligatoirement la ville ou le code postal du futur élève avant de proposer un créneau.`;
 
 /** Connaissances spécifiques auto-école — injectées si typeEtablissement === "auto-ecole". */
 const AUTO_ECOLE_KNOWLEDGE =
@@ -52,7 +53,7 @@ function buildEtablissementBlock(artisan: Artisan): string | null {
       lines.push(`Permis proposés : ${artisan.permisProposes.join(", ")}`);
     }
     if (artisan.tarifHeureConduite) {
-      lines.push(`Tarif heure de conduite : ${artisan.tarifHeureConduite} €`);
+      lines.push(`Le tarif exact de cette auto-école est de ${artisan.tarifHeureConduite} € par heure de conduite. Donne toujours ce tarif exact quand on te le demande, ne donne jamais une fourchette générique.`);
     }
     if (artisan.forfaits) {
       lines.push(`Forfaits : ${artisan.forfaits}`);
