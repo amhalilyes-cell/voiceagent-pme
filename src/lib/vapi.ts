@@ -579,7 +579,15 @@ function extractNameFromCalendarArgs(
       const summary: string = args.summary ?? args.title ?? "";
       console.log("[Debug] GCal tool_call summary:", summary);
 
-      // "RDV permis B - Ilyes Amhal, 0666073685" ou "Intervention - Nom, tel, adresse"
+      // Format auto-école prioritaire : "RDV permis B - Thomas Dupont, 0666073685, Paris"
+      const permisMatch = summary.match(/RDV\s+permis\s+\w+\s*[-–]\s*([A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)*)\s*,/i);
+      if (permisMatch) {
+        const candidate = permisMatch[1].trim();
+        console.log("[Debug] Nom depuis RDV permis format:", candidate);
+        return candidate;
+      }
+
+      // Format générique : "Intervention - Nom, tel, adresse"
       // → capture tout ce qui est entre le tiret et la première virgule comme nom complet
       const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ][A-ZÀ-Ÿa-zà-ÿ\s]+?)\s*,/i);
       console.log("[Debug] dashMatch result:", dashMatch);
@@ -774,9 +782,13 @@ const FAUX_PRENOMS = new Set([
 function extractNameFromTranscript(transcript: string): string | undefined {
   // Patterns ordonnés par fiabilité décroissante
   const patterns: RegExp[] = [
-    // Nom répété deux fois : "Thomas Dupont Thomas Dupont" → prend la première occurrence
-    /\b([A-ZÀ-Ÿ][a-zà-ÿ]+\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)\s+\1\b/,
-    // Déclarations explicites du client (lignes "User:" ou texte brut)
+    // PRIORITÉ ABSOLUE — ligne "User:" contenant uniquement prénom + nom répété deux fois
+    // Ex : "User: Thomas Dupont Thomas Dupont" → "Thomas Dupont"
+    /^User\s*:\s*([A-ZÀ-Ÿ][a-zà-ÿ]{1,20}\s+[A-ZÀ-Ÿ][a-zà-ÿ]{1,20})\s+\1\s*[.!]?\s*$/m,
+    // Ligne "User:" contenant uniquement prénom + nom (sans répétition ni autre texte)
+    // Ex : "User: Thomas Dupont" → "Thomas Dupont"
+    /^User\s*:\s*([A-ZÀ-Ÿ][a-zà-ÿ]{1,20}\s+[A-ZÀ-Ÿ][a-zà-ÿ]{1,20})\s*[.!]?\s*$/m,
+    // Déclarations explicites du client
     /(?:^|User\s*:\s*).*?je m['']appelle\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/im,
     /(?:^|User\s*:\s*).*?mon nom c['']est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/im,
     /(?:^|User\s*:\s*).*?mon nom est\s+([A-ZÀ-Ÿa-zà-ÿ]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ]+)?)/im,
