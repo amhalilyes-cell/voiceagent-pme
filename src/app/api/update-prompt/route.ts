@@ -30,7 +30,8 @@ const AUTO_ECOLE_KNOWLEDGE =
   `Le CPF (Compte Personnel de Formation) permet de financer la formation au permis B uniquement. Le candidat doit avoir plus de 18 ans et être salarié ou demandeur d'emploi. Le montant disponible dépend des droits accumulés. ` +
   `Documents généralement requis pour l'inscription au permis B : pièce d'identité valide, justificatif de domicile, photo d'identité, NEPH si déjà attribué. ` +
   `Délais moyens : permis B en formation classique 6 à 12 mois, permis accéléré (stage intensif) 1 à 2 semaines de formation + attente examen, AAC (conduite accompagnée) dès 15 ans avec un accompagnateur agréé. ` +
-  `Différences permis : AM = cyclomoteurs (dès 14 ans) ; A2 = motos jusqu'à 35 kW (dès 18 ans) ; A = toutes motos après 2 ans en A2 ou dès 24 ans ; B = voitures (dès 17 ans en AAC, 18 ans en classique) ; C = poids lourds ; D = transports en commun ; BE = voiture + remorque lourde.`;
+  `Différences permis : AM = cyclomoteurs (dès 14 ans) ; A2 = motos jusqu'à 35 kW (dès 18 ans) ; A = toutes motos après 2 ans en A2 ou dès 24 ans ; B = voitures (dès 17 ans en AAC, 18 ans en classique) ; C = poids lourds ; D = transports en commun ; BE = voiture + remorque lourde. ` +
+  `Quand un futur élève appelle pour s'inscrire ou prendre un rendez-vous, demande-lui systématiquement s'il possède déjà un numéro NEPH. Si oui, demande-lui de l'avoir avec lui lors de son rendez-vous. Si non, rassure-le en lui disant que l'auto-école s'en occupera lors de son inscription.`;
 
 /** Construit le bloc INFORMATIONS DE L'ÉTABLISSEMENT à injecter dans le prompt. */
 function buildEtablissementBlock(artisan: Artisan): string | null {
