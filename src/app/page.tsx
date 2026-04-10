@@ -44,15 +44,15 @@ export default function HomePage() {
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         <div className="text-center">
           <span className="inline-block bg-blue-50 text-blue-700 text-sm font-medium px-3 py-1 rounded-full mb-6">
-            Conçu pour les artisans français
+            Conçu pour les auto-écoles françaises
           </span>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
             Ne ratez plus jamais{" "}
             <span className="text-blue-600">un appel client</span>
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-            VoiceAgent PME répond à vos clients 24h/24, 7j/7 — même quand vous
-            êtes en chantier, en réunion ou le week-end. Un assistant vocal IA
+            VoiceAgent PME répond à vos clients 24h/24, 7j/7 — même quand vos
+            moniteurs sont en leçon ou que l&apos;accueil est fermé. Un assistant vocal IA
             qui parle comme vous et connaît votre métier.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -91,7 +91,7 @@ export default function HomePage() {
       <section id="fonctionnalites" className="py-20 bg-gray-50 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">
-            Tout ce dont un artisan a besoin
+            Tout ce dont une auto-école a besoin
           </h2>
           <p className="text-center text-gray-500 mb-14 max-w-xl mx-auto">
             Votre agent vocal gère les appels entrants à votre place, avec le
@@ -111,8 +111,8 @@ export default function HomePage() {
               },
               {
                 icon: "📋",
-                title: "Qualification des devis",
-                desc: "Il collecte les informations essentielles (type de travaux, surface, localisation) avant de vous transmettre le lead.",
+                title: "Réponses aux questions permis",
+                desc: "L'agent répond aux questions sur les permis B, A, A2, AM, CPF, NEPH et les tarifs de votre auto-école.",
               },
               {
                 icon: "📲",
@@ -120,9 +120,9 @@ export default function HomePage() {
                 desc: "Recevez un résumé par SMS ou email après chaque appel, avec les coordonnées et la demande du client.",
               },
               {
-                icon: "🔁",
-                title: "Transfert intelligent",
-                desc: "Si la demande est urgente, l'agent vous transfère l'appel en temps réel sur votre mobile.",
+                icon: "🎓",
+                title: "Informations personnalisées",
+                desc: "L'agent connaît vos tarifs proposés et vos horaires pour répondre précisément à chaque futur élève.",
               },
               {
                 icon: "🇫🇷",
