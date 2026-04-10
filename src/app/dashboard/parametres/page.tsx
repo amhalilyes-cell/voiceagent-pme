@@ -68,7 +68,7 @@ function ParametresContent() {
       .then((data) => {
         setArtisan(data);
         setNomEntreprise(data.nomEntreprise ?? "");
-        setTypeEtablissement(data.typeEtablissement ?? "");
+        setTypeEtablissement("auto-ecole");
         setPermisProposes(data.permisProposes ?? []);
         setTarifHeureConduite(data.tarifHeureConduite?.toString() ?? "");
         setForfaits(data.forfaits ?? "");
@@ -295,24 +295,16 @@ function ParametresContent() {
             </p>
 
             <form onSubmit={handleEtabSave} className="space-y-4">
-              {/* Type d'établissement */}
+              {/* Type d'établissement — fixe */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type d&apos;établissement</label>
-                <select
-                  value={typeEtablissement}
-                  onChange={(e) => setTypeEtablissement(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">— Sélectionner —</option>
-                  <option value="auto-ecole">Auto-école</option>
-                  <option value="artisan">Artisan</option>
-                  <option value="autre">Autre</option>
-                </select>
+                <div className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 text-gray-700">
+                  Auto-école
+                </div>
               </div>
 
-              {/* Champs spécifiques auto-école */}
-              {typeEtablissement === "auto-ecole" && (
-                <>
+              {/* Champs auto-école */}
+              <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Permis proposés</label>
                     <div className="flex flex-wrap gap-2">
@@ -380,10 +372,9 @@ function ParametresContent() {
                       </label>
                     ))}
                   </div>
-                </>
-              )}
+              </>
 
-              {/* Horaires & adresse — tous types */}
+              {/* Horaires & adresse */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Horaires d&apos;ouverture</label>
                 <textarea
