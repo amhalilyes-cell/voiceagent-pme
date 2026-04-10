@@ -22,7 +22,7 @@ const FRENCH_RULES =
   `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer. ` +
   `Quand le client donne son adresse, répète-la toujours mot par mot pour confirmer avant de créer le rendez-vous. Si quelque chose semble incorrect dans l'adresse, redemande. ` +
   `Pour le code postal, demande toujours au client de l'épeler chiffre par chiffre. Pour la ville, répète-la pour confirmer. Ne jamais inventer ou modifier une adresse. ` +
-  `Pour terminer l'appel, dis toujours exactement : 'Au revoir et à bientôt !' puis raccroche automatiquement.`;
+  `Après avoir confirmé le rendez-vous, demande toujours : 'Avez-vous d'autres questions ?' Si le client a des questions, réponds-y. Quand le client dit au revoir, bonne journée, bonne soirée ou à bientôt, réponds 'Au revoir et à bientôt !' puis raccroche automatiquement.`;
 
 /** Connaissances spécifiques auto-école — injectées si typeEtablissement === "auto-ecole". */
 const AUTO_ECOLE_KNOWLEDGE =
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
       transcriber: { provider: "deepgram", model: "nova-3", language: "fr", smartFormat: true },
-      endCallPhrases: ["au revoir et à bientôt", "bonne journée et à bientôt", "à très bientôt", "passez une bonne journée", "bonne soirée et à bientôt"],
+      endCallPhrases: ["au revoir", "bonne soirée", "bonne journée", "à bientôt", "à plus tard", "merci au revoir", "c'est bon merci", "ok merci"],
       silenceTimeoutSeconds: 60,
       maxDurationSeconds: 1800,
       endCallMessage: "Au revoir et à bientôt !",
