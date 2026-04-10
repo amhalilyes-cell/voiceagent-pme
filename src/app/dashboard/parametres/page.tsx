@@ -17,7 +17,18 @@ interface Artisan {
   twilioPhoneNumber?: string;
   refreshToken?: string;
   trialEndsAt?: string;
+  typeEtablissement?: string;
+  permisProposes?: string[];
+  tarifHeureConduite?: number;
+  forfaits?: string;
+  financementCpf?: boolean;
+  conduiteAccompagnee?: boolean;
+  permisAccelere?: boolean;
+  horairesOuverture?: string;
+  adresseEtablissement?: string;
 }
+
+const PERMIS_OPTIONS = ["B", "A", "A2", "AM", "C", "D", "BE"] as const;
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   active: { label: "Actif", color: "bg-green-100 text-green-700" },
@@ -37,12 +48,35 @@ function ParametresContent() {
   const [error, setError] = useState<string | null>(null);
   const [nomEntreprise, setNomEntreprise] = useState("");
 
+  // Établissement
+  const [etabSaving, setEtabSaving] = useState(false);
+  const [etabSaved, setEtabSaved] = useState(false);
+  const [etabError, setEtabError] = useState<string | null>(null);
+  const [typeEtablissement, setTypeEtablissement] = useState("");
+  const [permisProposes, setPermisProposes] = useState<string[]>([]);
+  const [tarifHeureConduite, setTarifHeureConduite] = useState("");
+  const [forfaits, setForfaits] = useState("");
+  const [financementCpf, setFinancementCpf] = useState(false);
+  const [conduiteAccompagnee, setConduiteAccompagnee] = useState(false);
+  const [permisAccelere, setPermisAccelere] = useState(false);
+  const [horairesOuverture, setHorairesOuverture] = useState("");
+  const [adresseEtablissement, setAdresseEtablissement] = useState("");
+
   useEffect(() => {
     fetch("/api/artisan/me")
       .then((r) => r.json())
       .then((data) => {
         setArtisan(data);
         setNomEntreprise(data.nomEntreprise ?? "");
+        setTypeEtablissement(data.typeEtablissement ?? "");
+        setPermisProposes(data.permisProposes ?? []);
+        setTarifHeureConduite(data.tarifHeureConduite?.toString() ?? "");
+        setForfaits(data.forfaits ?? "");
+        setFinancementCpf(data.financementCpf ?? false);
+        setConduiteAccompagnee(data.conduiteAccompagnee ?? false);
+        setPermisAccelere(data.permisAccelere ?? false);
+        setHorairesOuverture(data.horairesOuverture ?? "");
+        setAdresseEtablissement(data.adresseEtablissement ?? "");
       })
       .catch(() => setError("Impossible de charger vos informations."))
       .finally(() => setLoading(false));
@@ -69,6 +103,45 @@ function ParametresContent() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleEtabSave(e: React.FormEvent) {
+    e.preventDefault();
+    setEtabSaving(true);
+    setEtabSaved(false);
+    setEtabError(null);
+    try {
+      const res = await fetch("/api/artisan/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          typeEtablissement: typeEtablissement || undefined,
+          permisProposes: permisProposes.length > 0 ? permisProposes : [],
+          tarifHeureConduite: tarifHeureConduite ? parseInt(tarifHeureConduite, 10) : undefined,
+          forfaits: forfaits || undefined,
+          financementCpf,
+          conduiteAccompagnee,
+          permisAccelere,
+          horairesOuverture: horairesOuverture || undefined,
+          adresseEtablissement: adresseEtablissement || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setArtisan(updated);
+      setEtabSaved(true);
+      setTimeout(() => setEtabSaved(false), 3000);
+    } catch {
+      setEtabError("Erreur lors de la sauvegarde.");
+    } finally {
+      setEtabSaving(false);
+    }
+  }
+
+  function togglePermis(p: string) {
+    setPermisProposes((prev) =>
+      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
+    );
   }
 
   const status = artisan ? (STATUS_LABELS[artisan.status] ?? STATUS_LABELS.pending) : null;
@@ -210,6 +283,146 @@ function ParametresContent() {
                 className="bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60"
               >
                 {saving ? "Sauvegarde…" : "Enregistrer"}
+              </button>
+            </form>
+          </section>
+
+          {/* Informations établissement */}
+          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+            <h2 className="font-semibold text-gray-900 text-base">Informations de mon établissement</h2>
+            <p className="text-xs text-gray-500 -mt-3">
+              Ces informations sont injectées dans le prompt de votre assistant vocal pour personnaliser ses réponses.
+            </p>
+
+            <form onSubmit={handleEtabSave} className="space-y-4">
+              {/* Type d'établissement */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type d&apos;établissement</label>
+                <select
+                  value={typeEtablissement}
+                  onChange={(e) => setTypeEtablissement(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">— Sélectionner —</option>
+                  <option value="auto-ecole">Auto-école</option>
+                  <option value="artisan">Artisan</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+
+              {/* Champs spécifiques auto-école */}
+              {typeEtablissement === "auto-ecole" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Permis proposés</label>
+                    <div className="flex flex-wrap gap-2">
+                      {PERMIS_OPTIONS.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => togglePermis(p)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                            permisProposes.includes(p)
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tarif heure de conduite (€)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={tarifHeureConduite}
+                      onChange={(e) => setTarifHeureConduite(e.target.value)}
+                      placeholder="Ex : 45"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Forfaits proposés</label>
+                    <textarea
+                      value={forfaits}
+                      onChange={(e) => setForfaits(e.target.value)}
+                      rows={3}
+                      placeholder="Ex : Forfait 20h à 800€, Forfait 30h à 1150€"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { label: "Financement CPF accepté", value: financementCpf, setter: setFinancementCpf },
+                      { label: "Conduite accompagnée (AAC)", value: conduiteAccompagnee, setter: setConduiteAccompagnee },
+                      { label: "Permis accéléré (stage intensif)", value: permisAccelere, setter: setPermisAccelere },
+                    ].map(({ label, value, setter }) => (
+                      <label key={label} className="flex items-center gap-3 cursor-pointer">
+                        <button
+                          type="button"
+                          onClick={() => setter(!value)}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
+                            value ? "bg-blue-600" : "bg-gray-300"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform ${
+                              value ? "translate-x-4" : "translate-x-0.5"
+                            }`}
+                          />
+                        </button>
+                        <span className="text-sm text-gray-700">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Horaires & adresse — tous types */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Horaires d&apos;ouverture</label>
+                <textarea
+                  value={horairesOuverture}
+                  onChange={(e) => setHorairesOuverture(e.target.value)}
+                  rows={2}
+                  placeholder="Ex : Lun–Ven 9h–19h, Sam 9h–13h"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse complète</label>
+                <input
+                  type="text"
+                  value={adresseEtablissement}
+                  onChange={(e) => setAdresseEtablissement(e.target.value)}
+                  placeholder="Ex : 12 rue de la Paix, 75001 Paris"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {etabError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {etabError}
+                </div>
+              )}
+              {etabSaved && (
+                <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  Informations enregistrées.
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={etabSaving}
+                className="bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60"
+              >
+                {etabSaving ? "Sauvegarde…" : "Enregistrer"}
               </button>
             </form>
           </section>

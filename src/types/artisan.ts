@@ -14,6 +14,8 @@ export type MetierType =
 
 export type ArtisanStatus = "pending" | "active" | "cancelled" | "trial_expired";
 
+export type TypeEtablissement = "auto-ecole" | "artisan" | "autre";
+
 export interface Artisan {
   id: string;
   prenom: string;
@@ -35,4 +37,14 @@ export interface Artisan {
   trialEndsAt?: string;
   resetToken?: string;
   resetTokenExpires?: string;
+  // Informations établissement
+  typeEtablissement?: TypeEtablissement;
+  permisProposes?: string[];
+  tarifHeureConduite?: number;
+  forfaits?: string;
+  financementCpf?: boolean;
+  conduiteAccompagnee?: boolean;
+  permisAccelere?: boolean;
+  horairesOuverture?: string;
+  adresseEtablissement?: string;
 }

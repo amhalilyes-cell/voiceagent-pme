@@ -25,7 +25,19 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
-  let body: Partial<{ nomEntreprise: string; telephone: string }>;
+  let body: Partial<{
+    nomEntreprise: string;
+    telephone: string;
+    typeEtablissement: string;
+    permisProposes: string[];
+    tarifHeureConduite: number;
+    forfaits: string;
+    financementCpf: boolean;
+    conduiteAccompagnee: boolean;
+    permisAccelere: boolean;
+    horairesOuverture: string;
+    adresseEtablissement: string;
+  }>;
   try {
     body = await req.json();
   } catch {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findArtisanByVapiAssistantId } from "@/lib/storage";
+import type { Artisan } from "@/types/artisan";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,53 @@ const FRENCH_RULES =
   `Quand le client épèle son numéro de téléphone chiffre par chiffre, répète-le entièrement pour confirmer avant de continuer. ` +
   `Quand le client donne son adresse, répète-la toujours mot par mot pour confirmer avant de créer le rendez-vous. Si quelque chose semble incorrect dans l'adresse, redemande. ` +
   `Pour le code postal, demande toujours au client de l'épeler chiffre par chiffre. Pour la ville, répète-la pour confirmer. Ne jamais inventer ou modifier une adresse.`;
+
+/** Connaissances spécifiques auto-école — injectées si typeEtablissement === "auto-ecole". */
+const AUTO_ECOLE_KNOWLEDGE =
+  `CONNAISSANCES AUTO-ÉCOLE : ` +
+  `Le NEPH (Numéro d'Enregistrement Préfectoral Harmonisé) est un numéro à 15 chiffres attribué à chaque candidat lors de la première inscription au permis de conduire. Il est nécessaire pour s'inscrire aux examens. ` +
+  `Le CPF (Compte Personnel de Formation) permet de financer la formation au permis B uniquement. Le candidat doit avoir plus de 18 ans et être salarié ou demandeur d'emploi. Le montant disponible dépend des droits accumulés. ` +
+  `Documents généralement requis pour l'inscription au permis B : pièce d'identité valide, justificatif de domicile, photo d'identité, NEPH si déjà attribué. ` +
+  `Délais moyens : permis B en formation classique 6 à 12 mois, permis accéléré (stage intensif) 1 à 2 semaines de formation + attente examen, AAC (conduite accompagnée) dès 15 ans avec un accompagnateur agréé. ` +
+  `Différences permis : AM = cyclomoteurs (dès 14 ans) ; A2 = motos jusqu'à 35 kW (dès 18 ans) ; A = toutes motos après 2 ans en A2 ou dès 24 ans ; B = voitures (dès 17 ans en AAC, 18 ans en classique) ; C = poids lourds ; D = transports en commun ; BE = voiture + remorque lourde.`;
+
+/** Construit le bloc INFORMATIONS DE L'ÉTABLISSEMENT à injecter dans le prompt. */
+function buildEtablissementBlock(artisan: Artisan): string | null {
+  const lines: string[] = [];
+
+  if (artisan.typeEtablissement) {
+    const typeLabel =
+      artisan.typeEtablissement === "auto-ecole" ? "Auto-école" :
+      artisan.typeEtablissement === "artisan" ? "Artisan" : "Autre";
+    lines.push(`Type d'établissement : ${typeLabel}`);
+  }
+
+  if (artisan.typeEtablissement === "auto-ecole") {
+    if (artisan.permisProposes && artisan.permisProposes.length > 0) {
+      lines.push(`Permis proposés : ${artisan.permisProposes.join(", ")}`);
+    }
+    if (artisan.tarifHeureConduite) {
+      lines.push(`Tarif heure de conduite : ${artisan.tarifHeureConduite} €`);
+    }
+    if (artisan.forfaits) {
+      lines.push(`Forfaits : ${artisan.forfaits}`);
+    }
+    lines.push(`Financement CPF : ${artisan.financementCpf ? "Oui" : "Non"}`);
+    lines.push(`Conduite accompagnée (AAC) : ${artisan.conduiteAccompagnee ? "Oui" : "Non"}`);
+    lines.push(`Permis accéléré : ${artisan.permisAccelere ? "Oui" : "Non"}`);
+  }
+
+  if (artisan.horairesOuverture) {
+    lines.push(`Horaires d'ouverture : ${artisan.horairesOuverture}`);
+  }
+  if (artisan.adresseEtablissement) {
+    lines.push(`Adresse : ${artisan.adresseEtablissement}`);
+  }
+
+  if (lines.length === 0) return null;
+
+  return `INFORMATIONS DE L'ÉTABLISSEMENT :\n${lines.join("\n")}`;
+}
 
 /** Construit la ligne IMPORTANT avec la date/heure Paris actuelles (+5 min de marge). */
 function buildImportantLine(): { line: string; salutation: string } {
@@ -73,14 +121,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "assistantId requis" }, { status: 400 });
   }
 
-  // 1. Récupère le nom de l'entreprise depuis Supabase pour personnaliser le firstMessage
-  let nomEntreprise: string | undefined;
+  // 1. Récupère les infos de l'artisan depuis Supabase
+  let artisan: Artisan | undefined;
   try {
-    const artisan = await findArtisanByVapiAssistantId(assistantId);
-    nomEntreprise = artisan?.nomEntreprise;
+    artisan = await findArtisanByVapiAssistantId(assistantId);
   } catch {
-    // Non-bloquant — on utilisera le fallback générique
+    // Non-bloquant
   }
+  const nomEntreprise = artisan?.nomEntreprise;
   const firstMessage = nomEntreprise
     ? `Bonjour, vous avez bien joint ${nomEntreprise}, je suis l'assistant vocal, comment puis-je vous aider ?`
     : "Bonjour, vous avez bien joint notre service, je suis l'assistant vocal, comment puis-je vous aider ?";
@@ -108,8 +156,20 @@ export async function POST(req: NextRequest) {
   const { line: newLine, salutation } = buildImportantLine();
   const withoutOld = oldContent
     .replace(/^TU PARLES UNIQUEMENT[\s\S]*?\n\n/, "")
+    .replace(/^CONNAISSANCES AUTO-ÉCOLE[\s\S]*?\n\n/, "")
+    .replace(/^INFORMATIONS DE L'ÉTABLISSEMENT[\s\S]*?\n\n/, "")
     .replace(/^IMPORTANT\s*:.*(?:\r?\n){1,2}/i, "");
-  const newContent = `${FRENCH_RULES}\n\n${newLine}\n\n${withoutOld.trimStart()}`;
+
+  const isAutoEcole = artisan?.typeEtablissement === "auto-ecole";
+  const frenchRulesBlock = isAutoEcole
+    ? `${FRENCH_RULES}\n\n${AUTO_ECOLE_KNOWLEDGE}`
+    : FRENCH_RULES;
+
+  const etablissementBlock = artisan ? buildEtablissementBlock(artisan) : null;
+
+  const newContent = etablissementBlock
+    ? `${frenchRulesBlock}\n\n${etablissementBlock}\n\n${newLine}\n\n${withoutOld.trimStart()}`
+    : `${frenchRulesBlock}\n\n${newLine}\n\n${withoutOld.trimStart()}`;
 
   const updatedMessages = messages.map((m, i) =>
     i === sysIdx ? { ...m, content: newContent } : m

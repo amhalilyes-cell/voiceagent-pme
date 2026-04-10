@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
-import type { Artisan, ArtisanStatus, MetierType } from "@/types/artisan";
+import type { Artisan, ArtisanStatus, MetierType, TypeEtablissement } from "@/types/artisan";
 
 // Représentation en base (snake_case)
 interface ArtisanRow {
@@ -21,6 +21,15 @@ interface ArtisanRow {
   trial_ends_at: string | null;
   reset_token: string | null;
   reset_token_expires: string | null;
+  type_etablissement: TypeEtablissement | null;
+  permis_proposes: string[] | null;
+  tarif_heure_conduite: number | null;
+  forfaits: string | null;
+  financement_cpf: boolean | null;
+  conduite_accompagnee: boolean | null;
+  permis_accelere: boolean | null;
+  horaires_ouverture: string | null;
+  adresse_etablissement: string | null;
 }
 
 function toArtisan(row: ArtisanRow): Artisan {
@@ -43,6 +52,15 @@ function toArtisan(row: ArtisanRow): Artisan {
     trialEndsAt: row.trial_ends_at ?? undefined,
     resetToken: row.reset_token ?? undefined,
     resetTokenExpires: row.reset_token_expires ?? undefined,
+    typeEtablissement: row.type_etablissement ?? undefined,
+    permisProposes: row.permis_proposes ?? undefined,
+    tarifHeureConduite: row.tarif_heure_conduite ?? undefined,
+    forfaits: row.forfaits ?? undefined,
+    financementCpf: row.financement_cpf ?? undefined,
+    conduiteAccompagnee: row.conduite_accompagnee ?? undefined,
+    permisAccelere: row.permis_accelere ?? undefined,
+    horairesOuverture: row.horaires_ouverture ?? undefined,
+    adresseEtablissement: row.adresse_etablissement ?? undefined,
   };
 }
 
@@ -66,6 +84,15 @@ function toRow(artisan: Artisan): ArtisanRow {
     trial_ends_at: artisan.trialEndsAt ?? null,
     reset_token: artisan.resetToken ?? null,
     reset_token_expires: artisan.resetTokenExpires ?? null,
+    type_etablissement: artisan.typeEtablissement ?? null,
+    permis_proposes: artisan.permisProposes ?? null,
+    tarif_heure_conduite: artisan.tarifHeureConduite ?? null,
+    forfaits: artisan.forfaits ?? null,
+    financement_cpf: artisan.financementCpf ?? null,
+    conduite_accompagnee: artisan.conduiteAccompagnee ?? null,
+    permis_accelere: artisan.permisAccelere ?? null,
+    horaires_ouverture: artisan.horairesOuverture ?? null,
+    adresse_etablissement: artisan.adresseEtablissement ?? null,
   };
 }
 
@@ -276,6 +303,15 @@ export async function updateArtisan(
   if (patch.trialEndsAt !== undefined) rowPatch.trial_ends_at = patch.trialEndsAt;
   if (patch.resetToken !== undefined) rowPatch.reset_token = patch.resetToken;
   if (patch.resetTokenExpires !== undefined) rowPatch.reset_token_expires = patch.resetTokenExpires;
+  if (patch.typeEtablissement !== undefined) rowPatch.type_etablissement = patch.typeEtablissement;
+  if (patch.permisProposes !== undefined) rowPatch.permis_proposes = patch.permisProposes;
+  if (patch.tarifHeureConduite !== undefined) rowPatch.tarif_heure_conduite = patch.tarifHeureConduite;
+  if (patch.forfaits !== undefined) rowPatch.forfaits = patch.forfaits;
+  if (patch.financementCpf !== undefined) rowPatch.financement_cpf = patch.financementCpf;
+  if (patch.conduiteAccompagnee !== undefined) rowPatch.conduite_accompagnee = patch.conduiteAccompagnee;
+  if (patch.permisAccelere !== undefined) rowPatch.permis_accelere = patch.permisAccelere;
+  if (patch.horairesOuverture !== undefined) rowPatch.horaires_ouverture = patch.horairesOuverture;
+  if (patch.adresseEtablissement !== undefined) rowPatch.adresse_etablissement = patch.adresseEtablissement;
 
   try {
     const { data, error } = await getSupabase()
