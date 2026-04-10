@@ -24,7 +24,10 @@ const FRENCH_RULES =
   `Pour le code postal, demande toujours au client de l'épeler chiffre par chiffre. Pour la ville, répète-la pour confirmer. Ne jamais inventer ou modifier une adresse. ` +
   `Dès que le client dit merci au revoir, au revoir, bonne journée ou à bientôt, tu dis immédiatement "Au revoir et à bientôt !" puis tu raccroches sans attendre. Ne dis jamais "Effectivement" ou autre chose après. ` +
   `Une fois le RDV confirmé, conclus directement avec "Au revoir et à bientôt !" puis raccroche. Ne pose aucune question supplémentaire. ` +
-  `Après avoir pris le type de permis, demande obligatoirement la ville ou le code postal du futur élève avant de proposer un créneau.`;
+  `Après avoir pris le type de permis, demande obligatoirement la ville ou le code postal du futur élève avant de proposer un créneau. ` +
+  `Ensuite, demande : "Avez-vous déjà été inscrit dans une autre auto-école ou avez-vous déjà commencé une formation ?" Si oui, demande : "Dans quelle auto-école étiez-vous inscrit précédemment ?" ` +
+  `Ensuite, demande : "Que recherchez-vous exactement ?" et propose ces 4 options : 1) Formation complète de A à Z (code de la route, conduite et examen), 2) Préparation au code de la route uniquement, 3) Heures de conduite supplémentaires, 4) Préparation à l'examen pratique uniquement. ` +
+  `Ces deux informations (auto-école précédente si applicable, et type de formation recherché) doivent être incluses dans le titre ou la description du rendez-vous Google Calendar ET dans le résumé transmis au moniteur.`;
 
 /** Connaissances spécifiques auto-école — injectées si typeEtablissement === "auto-ecole". */
 const AUTO_ECOLE_KNOWLEDGE =
@@ -35,7 +38,8 @@ const AUTO_ECOLE_KNOWLEDGE =
   `Délais moyens : permis B en formation classique 6 à 12 mois, permis accéléré (stage intensif) 1 à 2 semaines de formation + attente examen, AAC (conduite accompagnée) dès 15 ans avec un accompagnateur agréé. ` +
   `Différences permis : AM = cyclomoteurs (dès 14 ans) ; A2 = motos jusqu'à 35 kW (dès 18 ans) ; A = toutes motos après 2 ans en A2 ou dès 24 ans ; B = voitures (dès 17 ans en AAC, 18 ans en classique) ; C = poids lourds ; D = transports en commun ; BE = voiture + remorque lourde. ` +
   `Quand un futur élève appelle pour s'inscrire ou prendre un rendez-vous, demande-lui systématiquement s'il possède déjà un numéro NEPH. Si oui, demande-lui de l'avoir avec lui lors de son rendez-vous. Si non, rassure-le en lui disant que l'auto-école s'en occupera lors de son inscription. ` +
-  `Dans le titre du rendez-vous Google Calendar, inclus toujours : type de permis, nom complet, téléphone et ville du futur élève. Format : "RDV permis [TYPE] - [Prénom Nom], [téléphone], [ville]".`;
+  `Dans le titre du rendez-vous Google Calendar, inclus toujours : type de permis, nom complet, téléphone et ville du futur élève. Format : "RDV permis [TYPE] - [Prénom Nom], [téléphone], [ville]". ` +
+  `Dans la description du rendez-vous Google Calendar, inclus : type de formation recherché (Formation complète / Code uniquement / Heures supplémentaires / Examen pratique), auto-école précédente si le futur élève en a eu une, et numéro NEPH si communiqué.`;
 
 /** Construit le bloc INFORMATIONS DE L'ÉTABLISSEMENT à injecter dans le prompt. */
 function buildEtablissementBlock(artisan: Artisan): string | null {
