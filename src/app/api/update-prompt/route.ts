@@ -27,7 +27,7 @@ const FRENCH_RULES =
   `Après avoir pris le type de permis, demande obligatoirement la ville ou le code postal du futur élève avant de proposer un créneau. ` +
   `Ensuite, demande : "Avez-vous déjà été inscrit dans une autre auto-école ou avez-vous déjà commencé une formation ?" Si oui, demande : "Dans quelle auto-école étiez-vous inscrit précédemment ?" ` +
   `Ensuite, demande : "Que recherchez-vous exactement ?" et propose ces 4 options : 1) Formation complète de A à Z (code de la route, conduite et examen), 2) Préparation au code de la route uniquement, 3) Heures de conduite supplémentaires, 4) Préparation à l'examen pratique uniquement. ` +
-  `Ces deux informations (auto-école précédente si applicable, et type de formation recherché) doivent être incluses dans le titre ou la description du rendez-vous Google Calendar ET dans le résumé transmis au moniteur.`;
+  `Ces deux informations (auto-école précédente si applicable, et type de formation recherché) doivent être incluses dans le titre ou la description du rendez-vous Google Calendar ET dans le résumé de fin d'appel envoyé par email au moniteur.`;
 
 /** Connaissances spécifiques auto-école — injectées si typeEtablissement === "auto-ecole". */
 const AUTO_ECOLE_KNOWLEDGE =

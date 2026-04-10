@@ -133,6 +133,13 @@ export function verifyVapiSignature(
  * - Des noms de journalistes/présentateurs souvent hallucinés
  */
 function filterHallucinatedBlocks(transcript: string): string {
+  // Corrections de codes postaux mal transcrits avant tout filtrage
+  let result = transcript
+    // "6 2 3 0 0" → "62300" (chiffres épelés séparés par des espaces)
+    .replace(/\b(\d)\s+(\d)\s+(\d)\s+(\d)\s+(\d)\b/g, "$1$2$3$4$5")
+    // "623 cents" → "62300" (six cent / cents = 00)
+    .replace(/\b(\d{1,3})\s+cents?\b/gi, (_, n) => n + "00");
+
   const HALLUCINATION_PATTERNS = [
     /\$\s*\d+/,                                                        // montants en dollars
     /\b(?:thank you|goodbye|you're welcome|have a nice day|see you)\b/i, // formules anglaises
@@ -143,7 +150,7 @@ function filterHallucinatedBlocks(transcript: string): string {
   ];
 
   // Découpe par lignes, filtre les lignes suspectes, recolle
-  const lines = transcript.split("\n");
+  const lines = result.split("\n");
   const filtered = lines.filter((line) => {
     const trimmed = line.trim();
     if (!trimmed) return true; // garde les lignes vides (structure)
@@ -782,10 +789,13 @@ const FAUX_PRENOMS = new Set([
 function extractNameFromTranscript(transcript: string): string | undefined {
   // Patterns ordonnés par fiabilité décroissante
   const patterns: RegExp[] = [
-    // PRIORITÉ ABSOLUE — ligne "User:" contenant uniquement prénom + nom répété deux fois
+    // PRIORITÉ ABSOLUE 1 — correction de nom : User dit "c'est [Prénom Nom]" ou "je m'appelle [Prénom Nom]"
+    // Couvre le cas où l'IA a dit "Merci [mauvais prénom]" et le client corrige
+    /User\s*:.*?c['']est\s+([A-ZÀ-Ÿ][a-zà-ÿ]+\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)/im,
+    // PRIORITÉ ABSOLUE 2 — ligne "User:" contenant uniquement prénom + nom répété deux fois
     // Ex : "User: Thomas Dupont Thomas Dupont" → "Thomas Dupont"
     /^User\s*:\s*([A-ZÀ-Ÿ][a-zà-ÿ]{1,20}\s+[A-ZÀ-Ÿ][a-zà-ÿ]{1,20})\s+\1\s*[.!]?\s*$/m,
-    // Ligne "User:" contenant uniquement prénom + nom (sans répétition ni autre texte)
+    // PRIORITÉ ABSOLUE 3 — ligne "User:" contenant uniquement prénom + nom (sans autre texte)
     // Ex : "User: Thomas Dupont" → "Thomas Dupont"
     /^User\s*:\s*([A-ZÀ-Ÿ][a-zà-ÿ]{1,20}\s+[A-ZÀ-Ÿ][a-zà-ÿ]{1,20})\s*[.!]?\s*$/m,
     // Déclarations explicites du client
