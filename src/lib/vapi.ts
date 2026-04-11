@@ -177,13 +177,19 @@ export async function handleVapiEvent(
         `[Vapi] Appel démarré — ID: ${call.id} | Client: ${clientPhone}`
       );
 
-      // Met à jour le prompt de l'assistant avec l'heure Paris actuelle (non-bloquant)
+      // Met à jour le prompt de l'assistant avec l'heure Paris actuelle
+      console.log("[Vapi] call-started reçu, déclenchement update-prompt pour assistantId:", call.assistantId);
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://voiceagent-pme.vercel.app";
-      fetch(`${appUrl}/api/update-prompt`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assistantId: call.assistantId }),
-      }).catch((err) => console.error("[Vapi] update-prompt échoué:", err));
+      try {
+        const res = await fetch(`${appUrl}/api/update-prompt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assistantId: call.assistantId }),
+        });
+        console.log("[Vapi] update-prompt réponse HTTP:", res.status);
+      } catch (err) {
+        console.error("[Vapi] update-prompt échoué:", err);
+      }
 
       return null;
     }
