@@ -105,7 +105,7 @@ DÉROULÉ STRICT DE L'APPEL — dans cet ordre exact :
 ÉTAPE 9 — Vérifier disponibilités calendrier et proposer un créneau.
 ÉTAPE 10 — Créer le RDV. Titre : "RDV permis [TYPE] - [Prénom Nom], [téléphone], [ville], [ancienne auto-école si applicable], [type de formation]"
 ÉTAPE 11 — Demander UNE seule fois "Avez-vous des questions ?" puis répondre avec les infos de l'établissement.
-ÉTAPE 12 — Quand le client dit au revoir → "Au revoir et à bientôt !" puis raccrocher immédiatement.`;
+ÉTAPE 12 — Quand le client dit au revoir, bonne journée ou bonne soirée, réponds TOUJOURS exactement "Au revoir et à bientôt !" — cette phrase exacte déclenche la fin d'appel automatique.`;
 
   const parts: string[] = [importantLine, prompt];
   if (etablissementBlock) parts.push(etablissementBlock);
@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
       transcriber: { provider: "deepgram", model: "nova-3", language: "fr", smartFormat: true },
-      endCallPhrases: ["au revoir", "bonne soirée", "bonne journée", "à bientôt", "à plus tard", "merci au revoir", "c'est bon merci", "ok merci"],
+      endCallPhrases: ["au revoir et à bientôt", "bonne journée et à bientôt", "bonne soirée et à bientôt", "à très bientôt", "au revoir à bientôt"],
       silenceTimeoutSeconds: 60,
       maxDurationSeconds: 1800,
       endCallMessage: "Au revoir et à bientôt !",
