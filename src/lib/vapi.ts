@@ -222,12 +222,14 @@ export async function handleVapiEvent(
         durationSeconds = Math.round((endTime - startTime) / 1000);
       }
 
-      // Nom client : customer.name > args GCal > transcript
+      // Nom client : GCal (titre RDV) > customer.name > transcript
+      // GCal est prioritaire car il contient le nom tel que tapé par l'IA après confirmation
       const clientNameFromGcal = extractNameFromCalendarArgs(messages);
+      const clientNameFromTranscript = extractNameFromTranscript(transcript);
       const clientName =
-        call.customer?.name ??
         clientNameFromGcal ??
-        extractNameFromTranscript(transcript);
+        call.customer?.name ??
+        clientNameFromTranscript;
 
       // ── Debug ──────────────────────────────────────────
       console.log("[Debug] clientPhone:", clientPhone);
@@ -829,6 +831,13 @@ const FAUX_PRENOMS = new Set([
   "place", "places", "rue", "avenue", "boulevard", "impasse", "chemin", "route", "résidence", "villa",
 ]);
 
+/** Mots indiquant un faux positif dans un nom extrait (thèmes auto-école ou interjections) */
+const FAUX_POSITIFS_NOM = new Set([
+  "cela", "bien", "oui", "non", "merci", "voiture", "permis", "formation",
+  "code", "examen", "conduire", "inscription", "leçon", "moniteur",
+  "auto", "école", "ecole", "neph", "cpf", "aac",
+]);
+
 /**
  * Extrait le prénom/nom du client depuis une transcription.
  * Cherche dans les répliques du client ET dans les "Merci [Prénom]" du bot.
@@ -862,10 +871,12 @@ function extractNameFromTranscript(transcript: string): string | undefined {
     const match = transcript.match(re);
     if (match) {
       const candidate = match[1].trim().toLowerCase();
-      if (!FAUX_PRENOMS.has(candidate)) {
-        // Capitalise la première lettre
-        return match[1].trim().replace(/^\w/, (c) => c.toUpperCase());
-      }
+      if (FAUX_PRENOMS.has(candidate)) continue;
+      // Rejette si l'un des mots du candidat est un faux positif thématique
+      const words = candidate.split(/\s+/);
+      if (words.some((w) => FAUX_POSITIFS_NOM.has(w))) continue;
+      // Capitalise la première lettre
+      return match[1].trim().replace(/^\w/, (c) => c.toUpperCase());
     }
   }
   return undefined;
