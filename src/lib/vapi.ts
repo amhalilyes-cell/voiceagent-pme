@@ -811,7 +811,7 @@ function generateSummary(
     `RDV : ${rdv}`,
   ].filter(Boolean);
 
-  return lines.join(". ") + ".";
+  return lines.join("\n");
 }
 
 /** Mots à exclure des captures de prénom (faux positifs fréquents) */

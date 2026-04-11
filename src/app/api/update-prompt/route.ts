@@ -178,6 +178,8 @@ export async function POST(req: NextRequest) {
 
   // 3. Construit le prompt complet
   const { line: importantLine, salutation } = buildImportantLine();
+  const etablissementBlock = artisan ? buildEtablissementBlock(artisan) : null;
+  console.log(`[update-prompt] Bloc établissement: ${etablissementBlock ? "OK — " + etablissementBlock.slice(0, 80) + "…" : "NULL (aucune info établissement en base)"}`);
   const newSystemContent = buildSystemPrompt(nomEtablissement, importantLine, artisan);
 
   // 4. Remplace le message système (ou l'ajoute s'il est absent)
