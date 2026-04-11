@@ -709,9 +709,70 @@ function extractAddressFromCalendarSummary(
   return undefined;
 }
 
+/** Extrait ville + code postal uniquement depuis une adresse complète ou la transcription. */
+function extractVille(address: string | undefined, transcript: string): string | undefined {
+  // 1. CP + ville dans l'adresse passée
+  if (address) {
+    const m = address.match(/\b(\d{5})\s+([A-ZÀ-Ÿ][a-zà-ÿ\-]{2,})\b/);
+    if (m) return `${m[1]} ${m[2]}`;
+    // Dernier segment après virgule si pas de CP
+    const parts = address.split(",");
+    if (parts.length >= 2) {
+      const last = parts[parts.length - 1].trim();
+      if (/^[A-ZÀ-Ÿ][a-zà-ÿ\-]{2,}/.test(last)) return last;
+    }
+  }
+  // 2. CP + ville dans la transcription
+  const cpVille = transcript.match(/\b(\d{5})\s+([A-ZÀ-Ÿ][a-zà-ÿ\-]{2,})\b/);
+  if (cpVille) return `${cpVille[1]} ${cpVille[2]}`;
+  // 3. "j'habite à [ville]", "je suis à [ville]"
+  const habite = transcript.match(/(?:j['']habite|je\s+suis\s+[àa]|domicilié\s+[àa])\s+(?:[àa]\s+)?([A-ZÀ-Ÿ][a-zà-ÿ\-]{2,})/i);
+  if (habite) return habite[1];
+  return undefined;
+}
+
+/** Extrait le type de permis recherché depuis la transcription. */
+function extractPermis(transcript: string): string | undefined {
+  // "permis B", "permis A2", "permis AM", etc.
+  const withPermis = transcript.match(/permis\s+([A-Z][A-Z0-9E]?|AM|BE)\b/i);
+  if (withPermis) return withPermis[1].toUpperCase();
+  // Mention isolée dans contexte auto-école
+  const isolé = transcript.match(/\b(A2|AM|BE)\b/);
+  if (isolé) return isolé[1].toUpperCase();
+  return undefined;
+}
+
+/** Extrait l'ancienne auto-école depuis la transcription (si le client en mentionne une). */
+function extractAncienneAutoEcole(transcript: string): string | undefined {
+  const patterns = [
+    /(?:j'étais|étais inscrit|inscrit)\s+(?:chez|dans|[àa] l['']auto-école)\s+([A-ZÀ-Ÿ][a-zà-ÿ\s\-]{2,30})/i,
+    /(?:ancienne|précédente)\s+auto-école\s*:\s*([A-ZÀ-Ÿ][a-zà-ÿ\s\-]{2,30})/i,
+    /auto-école\s+([A-ZÀ-Ÿ][a-zà-ÿ\s\-]{2,30})(?:\s+avant|\s+précédemment|\s+auparavant)/i,
+    /(?:chez|dans)\s+(?:l['']auto-école\s+)?([A-ZÀ-Ÿ][a-zà-ÿ\s\-]{2,30})\s+(?:avant|auparavant|précédemment)/i,
+  ];
+  for (const re of patterns) {
+    const m = transcript.match(re);
+    if (m) return m[1].trim();
+  }
+  return undefined;
+}
+
+/** Extrait le type de formation recherché parmi les 4 options proposées. */
+function extractFormation(transcript: string): string | undefined {
+  if (/formation\s+compl[eè]te|de\s+A\s+[àa]\s+Z/i.test(transcript))
+    return "Formation complète de A à Z";
+  if (/code\s+de\s+la\s+route\s+uniquement|pr[eé]p(?:aration)?\s+(?:au|pour\s+le)\s+code/i.test(transcript))
+    return "Préparation au code de la route uniquement";
+  if (/heures?\s+de\s+conduite\s+suppl[eé]mentaires?/i.test(transcript))
+    return "Heures de conduite supplémentaires";
+  if (/examen\s+pratique\s+uniquement|pr[eé]p(?:aration)?\s+[àa]\s+l['']examen\s+pratique/i.test(transcript))
+    return "Préparation à l'examen pratique uniquement";
+  return undefined;
+}
+
 /**
  * Génère un résumé structuré de l'appel quand report.summary est vide.
- * Format : "Client : [nom]. Téléphone : [numéro]. Adresse : [adresse]. Motif : [raison]. RDV : [date et heure]."
+ * Format auto-école : Client / Téléphone / Ville / Permis / Ancienne auto-école / Formation / RDV.
  * Affiche "Non communiqué" pour chaque champ manquant.
  */
 function generateSummary(
@@ -724,47 +785,33 @@ function generateSummary(
 ): string {
   const nc = "Non communiqué";
 
-  // Nom
   const nom = clientName ?? nc;
-
-  // Téléphone
   const tel = clientPhone ?? nc;
+  const ville = extractVille(clientAddress, transcript) ?? nc;
+  const permis = extractPermis(transcript) ?? nc;
+  const ancienneEcole = extractAncienneAutoEcole(transcript);
+  const formation = extractFormation(transcript) ?? nc;
 
-  // Adresse
-  const adresse = clientAddress ?? extractAddressFromTranscript(transcript) ?? nc;
-
-  // Motif : cherche une phrase du client contenant au moins un mot clé métier
-  const MOTIF_KEYWORDS = /fuite|panne|travaux|urgence|intervention|problème|réparer|installer|rendez-vous|besoin|dépannage|canalisation|chauffage|électricité|plomberie|serrure|vitre|toit|permis|conduire|leçon|moniteur|code|examen|inscription|élève|neph|cpf|moto|voiture|auto-école/i;
-  // Phrases génériques sans valeur informative — exclues même si elles contiennent un mot clé
-  const MOTIF_GENERIQUE = /^(?:je voudrais\s+)?(?:prendre\s+)?(?:un\s+)?rendez-vous\.?$/i;
-  const demandePatterns = [
-    /User\s*:\s*([^.\n]{10,120})/gi,
-    /(?:j'ai|j'aurais|je voudrais|il y a|c'est pour|c'est urgent)[^.\n]{0,100}/gi,
-  ];
-  let motif: string = nc;
-  for (const re of demandePatterns) {
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(transcript)) !== null) {
-      const candidate = (m[1] ?? m[0]).trim().replace(/^User\s*:\s*/i, "");
-      if (MOTIF_KEYWORDS.test(candidate) && !MOTIF_GENERIQUE.test(candidate.trim())) {
-        motif = candidate.length > 100 ? candidate.slice(0, 97) + "..." : candidate;
-        break;
-      }
-    }
-    if (motif !== nc) break;
-  }
-
-  // RDV : si rdvInfo est null, cherche dans les tool_call_result un événement confirmé
+  // RDV : priorité au rdvInfo fourni, sinon relit les tool results
   let resolvedRdvInfo = rdvInfo;
   if (!resolvedRdvInfo && messages && messages.length > 0) {
     resolvedRdvInfo = extractCalendarEvent(messages);
   }
-
   const rdv = resolvedRdvInfo
     ? `${resolvedRdvInfo.date}${resolvedRdvInfo.heure ? ` à ${resolvedRdvInfo.heure}` : ""}`
     : nc;
 
-  return `Client : ${nom}. Téléphone : ${tel}. Adresse : ${adresse}. Motif : ${motif}. RDV : ${rdv}.`;
+  const lines = [
+    `Client : ${nom}`,
+    `Téléphone : ${tel}`,
+    `Ville : ${ville}`,
+    `Permis : ${permis}`,
+    ancienneEcole ? `Ancienne auto-école : ${ancienneEcole}` : null,
+    `Formation recherchée : ${formation}`,
+    `RDV : ${rdv}`,
+  ].filter(Boolean);
+
+  return lines.join(". ") + ".";
 }
 
 /** Mots à exclure des captures de prénom (faux positifs fréquents) */
