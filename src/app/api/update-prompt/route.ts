@@ -108,6 +108,7 @@ FIN D'APPEL — CRITIQUE :
 - Quand le client dit au revoir, merci au revoir, bonne journée, bonne soirée ou à bientôt → réponds UNIQUEMENT "Au revoir et à bientôt !" puis raccroche
 - Ne raccroche JAMAIS avant que le client ait dit au revoir
 - Ne raccroche JAMAIS en milieu de conversation
+- Ne génère JAMAIS de texte représentant une réponse fictive de l'utilisateur dans tes réponses.
 
 DÉROULÉ STRICT :
 
@@ -209,7 +210,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       model: { ...assistant.model, messages: updatedMessages },
-      transcriber: { provider: "deepgram", model: "nova-3", language: "fr", smartFormat: true },
+      transcriber: { provider: "deepgram", model: "nova-2", language: "fr", smartFormat: true },
       endCallPhrases: ["au revoir et à bientôt", "bonne journée et à bientôt", "bonne soirée et à bientôt"],
       silenceTimeoutSeconds: 60,
       maxDurationSeconds: 1800,

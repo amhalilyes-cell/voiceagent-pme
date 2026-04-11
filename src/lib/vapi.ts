@@ -222,21 +222,20 @@ export async function handleVapiEvent(
         durationSeconds = Math.round((endTime - startTime) / 1000);
       }
 
-      // Nom client : GCal (titre RDV) > customer.name > transcript
-      // GCal est prioritaire car il contient le nom tel que tapé par l'IA après confirmation
-      const clientNameFromGcal = extractNameFromCalendarArgs(messages);
+      // Champs GCal : titre RDV parsé en champs structurés (priorité maximale)
+      const gcalFields = getCalendarTitleFields(messages);
       const clientNameFromTranscript = extractNameFromTranscript(transcript);
       const clientName =
-        clientNameFromGcal ??
-        call.customer?.name ??
-        clientNameFromTranscript;
+        gcalFields?.name ??        // GCal titre (le plus fiable)
+        call.customer?.name ??     // Vapi customer.name
+        clientNameFromTranscript;  // extraction transcript (fallback)
 
       // ── Debug ──────────────────────────────────────────
       console.log("[Debug] clientPhone:", clientPhone);
       console.log("[Debug] clientName:", call.customer?.name);
-      console.log("[Debug] clientNameFromGcal:", clientNameFromGcal);
+      console.log("[Debug] gcalFields:", JSON.stringify(gcalFields));
       console.log("[Debug] durationSeconds:", report.durationSeconds, durationSeconds);
-      console.log("[Debug] extractedName:", extractNameFromTranscript(transcript));
+      console.log("[Debug] extractedName:", clientNameFromTranscript);
       // ───────────────────────────────────────────────────
 
       // Date de l'appel en Europe/Paris
@@ -283,15 +282,15 @@ export async function handleVapiEvent(
         console.warn(`[Vapi] Artisan introuvable pour assistantId ${call.assistantId}:`, err);
       }
 
-      // Adresse : summary GCal en priorité (adresse structurée), puis transcription en fallback
+      // Adresse : champ ville du titre GCal en priorité, puis transcription en fallback
       const clientAddress =
-        extractAddressFromCalendarSummary(messages) ??
+        gcalFields?.ville ??
         extractAddressFromTranscript(transcript);
 
       // Résumé : utilise report.summary si disponible, sinon génère depuis la transcription
       const summary =
         summaryRaw.trim() ||
-        generateSummary(transcript, rdvInfo, clientName, clientPhone, clientAddress, messages);
+        generateSummary(transcript, rdvInfo, clientName, clientPhone, clientAddress, messages, gcalFields);
       console.log("[Debug] summary utilisé:", summary);
 
       // Sauvegarde dans Supabase
@@ -551,73 +550,79 @@ function extractCalendarEvent(
   return null;
 }
 
-/**
- * Extrait le prénom du client depuis les arguments d'un tool_call google_calendar_tool.
- * Cherche dans le champ "summary" des args : "Intervention urgente - [Prénom]" ou "Client : [Prénom]".
- */
-function extractNameFromCalendarArgs(
-  messages: { role: string; content: string; name?: string }[]
-): string | undefined {
-  const toolCalls = messages.filter(
-    (m) =>
-      m.role === "tool_calls" ||
-      m.role === "assistant" // les tool_calls sont parfois dans le rôle assistant
-  );
+interface CalendarTitleFields {
+  permis?: string;
+  name?: string;
+  phone?: string;
+  ville?: string;
+  ancienneEcole?: string;
+  formation?: string;
+}
 
+/**
+ * Parse un titre GCal auto-école en champs structurés séparés par virgule.
+ * Format : "RDV permis B - Thomas Dupont, 0666073685, 62300 Lens, Auto-école Trente, Formation complète de A à Z"
+ */
+function parseCalendarTitle(summary: string): CalendarTitleFields {
+  const result: CalendarTitleFields = {};
+
+  // Permis en tête : "RDV permis B"
+  const permisHeaderMatch = summary.match(/^RDV\s+permis\s+(\w+)\s*[-–]/i);
+  if (permisHeaderMatch) result.permis = permisHeaderMatch[1].toUpperCase();
+
+  // Tout ce qui suit le premier tiret
+  const afterDash = summary.split(/\s*[-–]\s*/).slice(1).join(" - ").trim();
+  if (!afterDash) return result;
+
+  const parts = afterDash.split(/\s*,\s*/);
+  if (parts[0]) result.name = parts[0].trim();
+  if (parts[1]) result.phone = parts[1].trim();
+  if (parts[2]) result.ville = parts[2].trim();
+  if (parts[3]) result.ancienneEcole = parts[3].trim();
+  if (parts[4]) result.formation = parts[4].trim();
+
+  return result;
+}
+
+/**
+ * Trouve le summary GCal dans les tool_calls et retourne les champs parsés.
+ */
+function getCalendarTitleFields(
+  messages: { role: string; content: string; name?: string }[]
+): CalendarTitleFields | null {
+  const toolCalls = messages.filter(
+    (m) => m.role === "tool_calls" || m.role === "assistant"
+  );
   for (const msg of toolCalls) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const raw = (msg as any).toolCalls ?? (msg as any).tool_calls ?? [];
     const calls = Array.isArray(raw) ? raw : [];
-
     for (const tc of calls) {
       const fnName: string = tc?.function?.name ?? tc?.name ?? "";
       if (!fnName.includes("google_calendar")) continue;
-
       const argsRaw: string =
         typeof tc?.function?.arguments === "string"
           ? tc.function.arguments
           : JSON.stringify(tc?.function?.arguments ?? tc?.arguments ?? {});
-
       let args: Record<string, string> = {};
-      try {
-        args = JSON.parse(argsRaw);
-      } catch {
-        continue;
-      }
-
+      try { args = JSON.parse(argsRaw); } catch { continue; }
       const summary: string = args.summary ?? args.title ?? "";
-      console.log("[Debug] GCal tool_call summary:", summary);
-
-      // Format auto-école prioritaire : "RDV permis B - Thomas Dupont, 0666073685, Paris"
-      const permisMatch = summary.match(/RDV\s+permis\s+\w+\s*[-–]\s*([A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)*)\s*,/i);
-      if (permisMatch) {
-        const candidate = permisMatch[1].trim();
-        console.log("[Debug] Nom depuis RDV permis format:", candidate);
-        return candidate;
+      if (summary) {
+        console.log("[Debug] GCal tool_call summary:", summary);
+        return parseCalendarTitle(summary);
       }
-
-      // Format générique : "Intervention - Nom, tel, adresse"
-      // → capture tout ce qui est entre le tiret et la première virgule comme nom complet
-      const dashMatch = summary.match(/[-–]\s*([A-ZÀ-Ÿa-zà-ÿ][A-ZÀ-Ÿa-zà-ÿ\s]+?)\s*,/i);
-      console.log("[Debug] dashMatch result:", dashMatch);
-      if (dashMatch) {
-        const candidate = dashMatch[1].trim();
-        const MOTS_VOIE = new Set([
-          "place", "places", "rue", "avenue", "boulevard", "impasse",
-          "chemin", "route", "résidence", "villa", "allée", "voie", "cité",
-        ]);
-        const firstWord = candidate.split(" ")[0].toLowerCase();
-        if (!MOTS_VOIE.has(firstWord) && !FAUX_PRENOMS.has(firstWord)) {
-          return candidate;
-        }
-      }
-
-      // "Client : Amal"
-      const clientMatch = summary.match(/Client\s*:\s*([A-ZÀ-Ÿa-zà-ÿ]+)/i);
-      if (clientMatch) return clientMatch[1].trim();
     }
   }
-  return undefined;
+  return null;
+}
+
+/**
+ * Extrait le prénom/nom du client depuis le titre d'un tool_call google_calendar_tool.
+ */
+function extractNameFromCalendarArgs(
+  messages: { role: string; content: string; name?: string }[]
+): string | undefined {
+  return getCalendarTitleFields(messages)?.name ?? undefined;
 }
 
 /**
@@ -657,56 +662,16 @@ function extractAddressFromTranscript(transcript: string): string | undefined {
 }
 
 /**
- * Extrait une adresse depuis le summary d'un tool_call google_calendar_tool.
- * Format attendu : "Intervention [type] - [Nom], [téléphone], [adresse complète]"
- * Ex : "Intervention fuite d'eau - Amal, 0 six soixante-cinq..., 14 places des Pervenches, Résidence des Fleurs, 62300 Lens"
- *
- * Stratégie : après le tiret, on a "Nom, Téléphone, Adresse...".
- * On saute les 2 premiers éléments (nom + téléphone) et on prend le reste comme adresse.
- * Fallback : extractAddressFromText() sur le summary entier.
+ * Extrait la ville/adresse depuis le titre d'un tool_call google_calendar_tool.
+ * Utilise parseCalendarTitle() — le champ ville est parts[2] après le tiret.
  */
 function extractAddressFromCalendarSummary(
   messages: { role: string; content: string; name?: string }[]
 ): string | undefined {
-  const toolCalls = messages.filter(
-    (m) => m.role === "tool_calls" || m.role === "assistant"
-  );
-  for (const msg of toolCalls) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw = (msg as any).toolCalls ?? (msg as any).tool_calls ?? [];
-    const calls = Array.isArray(raw) ? raw : [];
-    for (const tc of calls) {
-      const fnName: string = tc?.function?.name ?? tc?.name ?? "";
-      if (!fnName.includes("google_calendar")) continue;
-      const argsRaw: string =
-        typeof tc?.function?.arguments === "string"
-          ? tc.function.arguments
-          : JSON.stringify(tc?.function?.arguments ?? tc?.arguments ?? {});
-      let args: Record<string, string> = {};
-      try { args = JSON.parse(argsRaw); } catch { continue; }
-      const summary: string = args.summary ?? args.title ?? "";
-      console.log("[Debug] GCal summary pour adresse:", summary);
-
-      // Priorité 1 : format "Intervention X - Nom, Téléphone, Adresse..."
-      // On isole ce qui vient après le tiret, puis on saute les 2 premiers segments
-      const afterDash = summary.split(/[-–]/).slice(1).join("-").trim();
-      if (afterDash) {
-        const parts = afterDash.split(",").map((p) => p.trim()).filter(Boolean);
-        // parts[0] = Nom, parts[1] = Téléphone, parts[2..] = Adresse
-        if (parts.length >= 3) {
-          const address = parts.slice(2).join(", ");
-          console.log("[Debug] Adresse depuis GCal summary (format structuré):", address);
-          return address;
-        }
-      }
-
-      // Priorité 2 : recherche de pattern d'adresse dans le summary entier
-      const found = extractAddressFromText(summary);
-      if (found) {
-        console.log("[Debug] Adresse depuis GCal summary (regex):", found);
-        return found;
-      }
-    }
+  const fields = getCalendarTitleFields(messages);
+  if (fields?.ville) {
+    console.log("[Debug] Adresse depuis GCal summary (format structuré):", fields.ville);
+    return fields.ville;
   }
   return undefined;
 }
@@ -776,6 +741,7 @@ function extractFormation(transcript: string): string | undefined {
  * Génère un résumé structuré de l'appel quand report.summary est vide.
  * Format auto-école : Client / Téléphone / Ville / Permis / Ancienne auto-école / Formation / RDV.
  * Affiche "Non communiqué" pour chaque champ manquant.
+ * Les champs issus du titre GCal (gcalFields) sont prioritaires sur l'extraction transcript.
  */
 function generateSummary(
   transcript: string,
@@ -783,16 +749,17 @@ function generateSummary(
   clientName: string | undefined,
   clientPhone?: string,
   clientAddress?: string,
-  messages?: { role: string; content: string; name?: string }[]
+  messages?: { role: string; content: string; name?: string }[],
+  gcalFields?: CalendarTitleFields | null
 ): string {
   const nc = "Non communiqué";
 
   const nom = clientName ?? nc;
   const tel = clientPhone ?? nc;
   const ville = extractVille(clientAddress, transcript) ?? nc;
-  const permis = extractPermis(transcript) ?? nc;
-  const ancienneEcole = extractAncienneAutoEcole(transcript);
-  const formation = extractFormation(transcript) ?? nc;
+  const permis = gcalFields?.permis ?? extractPermis(transcript) ?? nc;
+  const ancienneEcole = gcalFields?.ancienneEcole ?? extractAncienneAutoEcole(transcript);
+  const formation = gcalFields?.formation ?? extractFormation(transcript) ?? nc;
 
   // RDV : priorité au rdvInfo fourni, sinon relit les tool results
   let resolvedRdvInfo = rdvInfo;
