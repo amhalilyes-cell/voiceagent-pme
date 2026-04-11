@@ -159,6 +159,17 @@ export async function POST(req: NextRequest) {
   let artisan: Artisan | undefined;
   try {
     artisan = await findArtisanByVapiAssistantId(assistantId);
+    console.log("[update-prompt] Artisan récupéré:", JSON.stringify({
+      id: artisan?.id,
+      nomEntreprise: artisan?.nomEntreprise,
+      typeEtablissement: artisan?.typeEtablissement,
+      tarifHeureConduite: artisan?.tarifHeureConduite,
+      permisProposes: artisan?.permisProposes,
+      forfaits: artisan?.forfaits,
+      financementCpf: artisan?.financementCpf,
+      horairesOuverture: artisan?.horairesOuverture,
+      adresseEtablissement: artisan?.adresseEtablissement,
+    }));
   } catch {
     // Non-bloquant — on utilisera les fallbacks
   }
