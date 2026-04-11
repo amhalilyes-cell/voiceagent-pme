@@ -574,12 +574,24 @@ function parseCalendarTitle(summary: string): CalendarTitleFields {
   const afterDash = summary.split(/\s*[-–]\s*/).slice(1).join(" - ").trim();
   if (!afterDash) return result;
 
+  const FORMATION_KEYWORDS = /formation|code|conduite|examen|pratique|compl[eè]te/i;
+
   const parts = afterDash.split(/\s*,\s*/);
   if (parts[0]) result.name = parts[0].trim();
   if (parts[1]) result.phone = parts[1].trim();
   if (parts[2]) result.ville = parts[2].trim();
-  if (parts[3]) result.ancienneEcole = parts[3].trim();
-  if (parts[4]) result.formation = parts[4].trim();
+  if (parts.length === 4) {
+    // Pas d'ancienne auto-école : parts[3] est la formation
+    result.formation = parts[3].trim();
+  } else if (parts.length >= 5) {
+    result.ancienneEcole = parts[3].trim();
+    result.formation = parts[4].trim();
+  } else if (parts[3] && FORMATION_KEYWORDS.test(parts[3])) {
+    // Sécurité : si parts[3] ressemble à une formation, on l'affecte ainsi
+    result.formation = parts[3].trim();
+  } else if (parts[3]) {
+    result.ancienneEcole = parts[3].trim();
+  }
 
   return result;
 }
@@ -756,7 +768,13 @@ function generateSummary(
 
   const nom = clientName ?? nc;
   const tel = clientPhone ?? nc;
-  const ville = extractVille(clientAddress, transcript) ?? nc;
+  // clientAddress vient déjà du titre GCal (ex: "62300 Lens") ou de la transcription.
+  // On l'utilise directement si c'est une valeur simple (pas de virgule, < 50 chars).
+  const villeDirecte =
+    clientAddress && !clientAddress.includes(",") && clientAddress.length < 50
+      ? clientAddress
+      : undefined;
+  const ville = villeDirecte ?? extractVille(clientAddress, transcript) ?? nc;
   const permis = gcalFields?.permis ?? extractPermis(transcript) ?? nc;
   const ancienneEcole = gcalFields?.ancienneEcole ?? extractAncienneAutoEcole(transcript);
   const formation = gcalFields?.formation ?? extractFormation(transcript) ?? nc;
