@@ -115,16 +115,25 @@ export async function POST(req: NextRequest) {
     // Crée la session Stripe Checkout
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-    const session = await stripe.checkout.sessions.create({
-      customer: customer.id,
-      mode: "subscription",
-      payment_method_types: ["card"],
-      line_items: [{ price: PRICE_ID, quantity: 1 }],
-      metadata: { artisanId: artisan.id },
-      success_url: `${appUrl}/inscription/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/inscription?cancelled=true`,
-      locale: "fr",
-    });
+    console.log("[Inscription] PRICE_ID utilisé:", PRICE_ID);
+    console.log("[Inscription] STRIPE_KEY mode:", process.env.STRIPE_SECRET_KEY?.startsWith("sk_live") ? "live" : "test");
+
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create({
+        customer: customer.id,
+        mode: "subscription",
+        payment_method_types: ["card"],
+        line_items: [{ price: PRICE_ID, quantity: 1 }],
+        metadata: { artisanId: artisan.id },
+        success_url: `${appUrl}/inscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/inscription?cancelled=true`,
+        locale: "fr",
+      });
+    } catch (err) {
+      console.error("[Inscription] Erreur Stripe checkout:", err);
+      return NextResponse.json({ error: String(err) }, { status: 500 });
+    }
 
     return NextResponse.json({ checkoutUrl: session.url }, { status: 201 });
   } catch (err) {
