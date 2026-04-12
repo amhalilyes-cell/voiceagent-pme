@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const PRICE_ID = process.env.STRIPE_PRICE_ID ?? "price_1TGfeoRztdaAmv8e28lRV88F";
+  const PRICE_ID = process.env.STRIPE_PRICE_ID ?? "price_1TLNT9RztdaAmv8eB0cLqqLl";
 
   try {
     // Vérifie si l'email est déjà utilisé — non-bloquant si Supabase est injoignable
