@@ -204,18 +204,15 @@ export default function HomePage() {
             </div>
             <div className="text-2xl font-bold mb-1">Offre unique</div>
             <div className="flex items-end gap-1 mb-6">
-              <span className="text-4xl font-bold">500€</span>
+              <span className="text-4xl font-bold">149€</span>
               <span className="text-sm text-blue-100 mb-1">/mois</span>
             </div>
             <ul className="space-y-3 mb-8">
               {[
-                "Appels illimités 24h/24",
-                "Prise de RDV automatique Google Calendar",
-                "SMS de confirmation au client",
-                "Email résumé après chaque appel",
-                "Rapport hebdomadaire automatique",
-                "Numéro français dédié (+33)",
-                "Support prioritaire",
+                "Agent vocal 24h/24, 7j/7",
+                "Prise de RDV automatique",
+                "Email de rapport après chaque appel",
+                "Intégration Google Calendar",
                 "7 jours d'essai gratuit",
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm">
@@ -257,7 +254,7 @@ export default function HomePage() {
           </p>
           <ContactForm />
           <p className="text-xs text-gray-400 mt-3">
-            Pas de carte bancaire requise. Essai 7 jours gratuit. 500€/mois ensuite.
+            Pas de carte bancaire requise. Essai 7 jours gratuit. 149€/mois ensuite.
           </p>
         </div>
       </section>
