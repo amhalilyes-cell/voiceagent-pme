@@ -6,18 +6,7 @@ import type { MetierType } from "@/types/artisan";
 import { Suspense } from "react";
 
 const METIERS: { value: MetierType; label: string }[] = [
-  { value: "plombier", label: "Plombier" },
-  { value: "electricien", label: "Électricien" },
-  { value: "menuisier", label: "Menuisier" },
-  { value: "maçon", label: "Maçon" },
-  { value: "peintre", label: "Peintre" },
-  { value: "carreleur", label: "Carreleur" },
-  { value: "charpentier", label: "Charpentier" },
-  { value: "couvreur", label: "Couvreur" },
-  { value: "serrurier", label: "Serrurier" },
-  { value: "chauffagiste", label: "Chauffagiste" },
-  { value: "climaticien", label: "Climaticien" },
-  { value: "autre", label: "Autre" },
+  { value: "auto-ecole", label: "Auto-école" },
 ];
 
 function InscriptionForm() {
@@ -105,7 +94,7 @@ function InscriptionForm() {
             Créez votre compte artisan
           </h1>
           <p className="text-gray-500 mt-2 text-sm">
-            7 jours gratuits, puis 500 €/mois. Annulable à tout moment.
+            7 jours gratuits, puis 149 €/mois. Annulable à tout moment.
           </p>
         </div>
 
@@ -193,7 +182,7 @@ function InscriptionForm() {
                 name="nomEntreprise"
                 value={form.nomEntreprise}
                 onChange={handleChange}
-                placeholder="Plomberie Dupont SARL"
+                placeholder="Cool Conduite"
                 required
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

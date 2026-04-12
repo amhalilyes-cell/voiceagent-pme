@@ -1,4 +1,5 @@
 export type MetierType =
+  | "auto-ecole"
   | "plombier"
   | "electricien"
   | "menuisier"
