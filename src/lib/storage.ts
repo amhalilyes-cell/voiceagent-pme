@@ -282,6 +282,38 @@ export async function saveCall(call: CallData): Promise<void> {
   }
 }
 
+export interface CallRow {
+  id: string;
+  vapi_call_id: string;
+  artisan_id: string | null;
+  client_name: string | null;
+  client_phone: string | null;
+  client_address: string | null;
+  duration_seconds: number | null;
+  summary: string | null;
+  transcript: string | null;
+  rdv: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  recording_url: string | null;
+}
+
+export async function getCallsByArtisan(artisanId: string): Promise<CallRow[]> {
+  try {
+    const { data, error } = await getSupabase()
+      .from("calls")
+      .select("id, vapi_call_id, artisan_id, client_name, client_phone, client_address, duration_seconds, summary, transcript, rdv, started_at, ended_at, recording_url")
+      .eq("artisan_id", artisanId)
+      .order("started_at", { ascending: false })
+      .limit(100);
+
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  } catch (err) {
+    throw formatError("getCallsByArtisan", err);
+  }
+}
+
 export async function updateArtisan(
   id: string,
   patch: Partial<Artisan>
